@@ -3,7 +3,7 @@ title Auto Instalador e Iniciador de Projeto
 
 :MENU
 echo ==============================================
-echo Bem-vindo ao UPLOAD IASD! - versao 1.4.0
+echo Bem-vindo ao UPLOAD IASD! - versao 1.5.0
 echo ==============================================
 echo.
 echo Escolha uma das opcoes abaixo para Instalacao:

@@ -8,15 +8,21 @@ const fileController = {
 
     // Verificar se o diretório existe
     if (!fs.existsSync(uploadsPath)) {
-      return res.status(500).send(`O diretório de uploads não existe: ${uploadsPath}`);
+      return res
+        .status(500)
+        .send(`O diretório de uploads não existe: ${uploadsPath}`);
     }
 
     // Ler arquivos da pasta uploads
     let files;
     try {
-      files = fs.readdirSync(uploadsPath).filter((file) => file !== "links.txt");
+      files = fs
+        .readdirSync(uploadsPath)
+        .filter((file) => file !== "links.txt");
     } catch (err) {
-      return res.status(500).send(`Erro ao ler o diretório de uploads: ${err.message}`);
+      return res
+        .status(500)
+        .send(`Erro ao ler o diretório de uploads: ${err.message}`);
     }
 
     // Caminho absoluto para o arquivo links.txt
@@ -27,7 +33,9 @@ const fileController = {
         ? fs.readFileSync(linksPath, "utf8").split("\n").filter(Boolean)
         : [];
     } catch (err) {
-      return res.status(500).send(`Erro ao ler o arquivo de links: ${err.message}`);
+      return res
+        .status(500)
+        .send(`Erro ao ler o arquivo de links: ${err.message}`);
     }
 
     // Gerar HTML para arquivos e links
@@ -54,7 +62,9 @@ const fileController = {
 
     // Verificar se o diretório existe
     if (!fs.existsSync(downloadsPath)) {
-      return res.status(500).send(`O diretório de downloads não existe: ${downloadsPath}`);
+      return res
+        .status(500)
+        .send(`O diretório de downloads não existe: ${downloadsPath}`);
     }
 
     // Ler arquivos da pasta downloads
@@ -62,7 +72,9 @@ const fileController = {
     try {
       files = fs.readdirSync(downloadsPath);
     } catch (err) {
-      return res.status(500).send(`Erro ao ler o diretório de downloads: ${err.message}`);
+      return res
+        .status(500)
+        .send(`Erro ao ler o diretório de downloads: ${err.message}`);
     }
     res.json(files);
   }

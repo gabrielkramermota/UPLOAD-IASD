@@ -2,131 +2,136 @@
 <html lang="pt-br">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <title>Início - Upload IASD</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Início - Upload IASD</title>
 </head>
 
 <body class="bg-gray-100">
-    <nav class="bg-gradient-to-r from-indigo-500 to-blue-500 p-2 shadow-md">
-        <div class="flex items-center max-w-4xl mx-auto justify-between">
-            <div class="flex items-center"><img src="/icons/logo.svg" alt="logo iasd" class="h-16" /></div>
-            <div class="flex space-x-6"><a href="/" class="text-white text-lg font-semibold">Home</a><a
-                    href="/downloads-page" class="text-white text-lg font-semibold">Downloads</a><a
-                    href="/comousar.html" class="text-white text-lg font-semibold">Como usar</a></div>
-        </div>
-    </nav>
-    <div class="max-w-xl mx-auto bg-white p-6 rounded-lg shadow-md mt-6">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">Enviar Arquivos</h1>
-        <form action="/upload" method="post" enctype="multipart/form-data" class="flex flex-col gap-4">
-            <div class="mb-6 pt-4">
-                <div class="relative">
-                    <input type="file" name="file" id="file" class="sr-only" multiple />
-                    <label for="file"
-                        class="relative flex min-h-[200px] items-center justify-center rounded-md border border-dashed border-gray-300 p-12 text-center cursor-pointer bg-white hover:bg-gray-50">
-                        <div id="upload-text">
-                            <svg class="w-12 h-12 mb-4 mx-auto text-gray-500" aria-hidden="true"
-                                xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
-                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2" />
-                            </svg>
-                            <span id="upload-status" class="mb-2 block text-xl font-semibold text-gray-800">Solte os
-                                arquivos aqui</span>
-                            <span class="mb-2 block text-base font-medium text-gray-600">Ou</span>
-                            <span
-                                class="inline-flex rounded border border-gray-300 py-2 px-7 text-base font-medium text-gray-800">Procurar</span>
-                        </div>
-                        <div id="upload-message"
-                            class="hidden absolute inset-0 flex items-center justify-center bg-white border border-gray-300 rounded-md p-6">
-                            <div>
-                                <svg class="w-12 h-12 mb-4 mx-auto text-green-500" aria-hidden="true"
-                                    xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-                                        stroke-width="2" d="M5 13l4 4L19 7" />
-                                </svg>
-                                <div class="flex items-center justify-center space-x-2">
-                                    <span id="file-count" class="text-xl font-bold text-gray-800"></span>
-                                    <span id="upload-message-text" class="text-xl font-bold text-gray-800">Arquivos
-                                        prontos para enviar!</span>
-                                </div>
-                            </div>
-                        </div>
-                    </label>
-                </div>
-            </div>
-            <input type="text" name="newFileName" id="newFileName" placeholder="Renomear arquivo (opcional)"
-                class="border border-gray-300 rounded p-2" />
-            <button type="submit" id="submit-button"
-                class="text-white py-4 rounded-[10px] duration-300 font-bold mt-2 cursor-not-allowed bg-gray-400"
-                disabled>Enviar Arquivo</button>
-        </form>
-        <hr class="my-6" />
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">Enviar Link</h1>
-        <form action="/link" method="post" class="flex flex-col gap-4">
-            <input type="url" name="link" placeholder="Cole o link aqui" class="border border-gray-300 rounded p-2"
-                required />
-            <button type="submit"
-                class="bg-blue-500 text-white py-4 rounded-[10px] hover:bg-blue-600 duration-300 font-bold mt-2">Enviar
-                Link</button>
-        </form>
-        <hr class="my-6" />
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">Arquivos e Links Enviados:</h1>
-        <div id="files" class="flex flex-col gap-4"></div><br /><span class="text-lg">feito por <a
-                class="font-bold underline" href="https://gabrielkramer.netlify.app/">Gabriel Kramer</a>
-            💚</span><span>versão 1.3.0</span>
+  <header class="bg-gradient-to-r from-indigo-500 to-blue-500 p-2 shadow-md">
+    <div class="flex items-center max-w-4xl mx-auto justify-between">
+      <div class="flex items-center">
+        <img src="/icons/logo.svg" alt="logo iasd" class="h-16" />
+      </div>
+      <nav class="flex space-x-6">
+        <a href="/" class="text-white text-lg font-semibold">Home</a>
+        <a href="/baixarvideo.html" class="text-white text-lg font-semibold">Baixar do Youtube</a>
+        <a href="/downloads-page" class="text-white text-lg font-semibold">Downloads</a>
+        <a href="/comousar.html" class="text-white text-lg font-semibold">Como usar</a>
+      </nav>
     </div>
-    <script>
-        document.getElementById('file').addEventListener('change', function () {
-            var fileInput = document.getElementById('file');
-            var uploadText = document.getElementById('upload-text');
-            var uploadMessage = document.getElementById('upload-message');
-            var submitButton = document.getElementById('submit-button');
-            var newFileNameInput = document.getElementById('newFileName');
-            var fileCount = document.getElementById('file-count');
-            var uploadMessageText = document.getElementById('upload-message-text');
+  </header>
+  <div class="max-w-xl mx-auto bg-white p-6 rounded-lg shadow-md mt-6">
+    <h1 class="text-2xl font-bold text-gray-800 mb-4">Enviar Arquivos</h1>
+    <form action="/upload" method="post" enctype="multipart/form-data" class="flex flex-col gap-4">
+      <div class="mb-6 pt-4">
+        <div class="relative">
+          <input type="file" name="file" id="file" class="sr-only" multiple />
+          <label for="file"
+            class="relative flex min-h-[200px] items-center justify-center rounded-md border border-dashed border-gray-300 p-12 text-center cursor-pointer bg-white hover:bg-gray-50">
+            <div id="upload-text">
+              <svg class="w-12 h-12 mb-4 mx-auto text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
+                fill="none" viewBox="0 0 20 16">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2" />
+              </svg>
+              <span id="upload-status" class="mb-2 block text-xl font-semibold text-gray-800">Solte os arquivos
+                aqui</span>
+              <span class="mb-2 block text-base font-medium text-gray-600">Ou</span>
+              <span
+                class="inline-flex rounded border border-gray-300 py-2 px-7 text-base font-medium text-gray-800">Procurar</span>
+            </div>
+            <div id="upload-message"
+              class="hidden absolute inset-0 flex items-center justify-center bg-white border border-gray-300 rounded-md p-6">
+              <div>
+                <svg class="w-12 h-12 mb-4 mx-auto text-green-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
+                  fill="none" viewBox="0 0 24 24">
+                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M5 13l4 4L19 7" />
+                </svg>
+                <div class="flex items-center justify-center space-x-2">
+                  <span id="file-count" class="text-xl font-bold text-gray-800"></span>
+                  <span id="upload-message-text" class="text-xl font-bold text-gray-800">Arquivos prontos para
+                    enviar!</span>
+                </div>
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+      <input type="text" name="newFileName" id="newFileName" placeholder="Renomear arquivo (opcional)"
+        class="border border-gray-300 rounded p-2" />
+      <button type="submit" id="submit-button"
+        class="text-white py-4 rounded-[10px] duration-300 font-bold mt-2 cursor-not-allowed bg-gray-400" disabled>
+        Enviar Arquivo
+      </button>
+    </form>
+    <hr class="my-6" />
+    <h1 class="text-2xl font-bold text-gray-800 mb-4">Enviar Link</h1>
+    <form action="/link" method="post" class="flex flex-col gap-4">
+      <input type="url" name="link" placeholder="Cole o link aqui" class="border border-gray-300 rounded p-2"
+        required />
+      <button type="submit"
+        class="bg-blue-500 text-white py-4 rounded-[10px] hover:bg-blue-600 duration-300 font-bold mt-2">
+        Enviar Link
+      </button>
+    </form>
+    <hr class="my-6" />
 
-            if (fileInput.files.length > 0) {
-                uploadText.classList.add('hidden');
-                uploadMessage.classList.remove('hidden');
-                submitButton.disabled = false;
-                submitButton.classList.remove('cursor-not-allowed', 'bg-gray-400');
-                submitButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
-                fileCount.textContent = `${fileInput.files.length}`;
 
-                // Adjust message based on the number of files
-                if (fileInput.files.length === 1) {
-                    uploadMessageText.textContent = 'Arquivo pronto para enviar!';
-                } else {
-                    uploadMessageText.textContent = 'Arquivos prontos para enviar!';
-                }
+    <br /><span class="text-lg">feito por
+      <a class="font-bold underline" href="https://gabrielkramer.netlify.app/">Gabriel Kramer</a>
+      💚</span><span> versão 1.5.0</span>
+  </div>
+  <script>
+    document.getElementById("file").addEventListener("change", function () {
+      var fileInput = document.getElementById("file");
+      var uploadText = document.getElementById("upload-text");
+      var uploadMessage = document.getElementById("upload-message");
+      var submitButton = document.getElementById("submit-button");
+      var newFileNameInput = document.getElementById("newFileName");
+      var fileCount = document.getElementById("file-count");
+      var uploadMessageText = document.getElementById("upload-message-text");
 
-                newFileNameInput.disabled = fileInput.files.length > 1;
-                newFileNameInput.classList.toggle('cursor-not-allowed', fileInput.files.length > 1);
-                newFileNameInput.classList.toggle('bg-gray-400/50', fileInput.files.length > 1);
-            } else {
-                uploadText.classList.remove('hidden');
-                uploadMessage.classList.add('hidden');
-                submitButton.disabled = true;
-                submitButton.classList.add('cursor-not-allowed', 'bg-gray-400');
-                submitButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
-                fileCount.textContent = '';
-                uploadMessageText.textContent = 'Arquivos prontos para enviar!';
-                newFileNameInput.disabled = false;
-            }
-        });
+      if (fileInput.files.length > 0) {
+        uploadText.classList.add("hidden");
+        uploadMessage.classList.remove("hidden");
+        submitButton.disabled = false;
+        submitButton.classList.remove("cursor-not-allowed", "bg-gray-400");
+        submitButton.classList.add("bg-blue-500", "hover:bg-blue-600");
+        fileCount.textContent = `${fileInput.files.length}`;
 
-        async function loadFiles() {
-            const response = await fetch("/files");
-            const text = await response.text();
-            const filesContainer = document.getElementById("files");
-            filesContainer.innerHTML = '';
-            filesContainer.innerHTML = text.split('\n').map(file => `<div class="flex flex-col flex-wrap bg-blue-100/50 p-4 rounded-md shadow-sm"><a href="${file}" class="text-blue-600 font-bold hover:underline">${file}</a></div>`).join('');
+        // Adjust message based on the number of files
+        if (fileInput.files.length === 1) {
+          uploadMessageText.textContent = "Arquivo pronto para enviar!";
+        } else {
+          uploadMessageText.textContent = "Arquivos prontos para enviar!";
         }
 
-        loadFiles();
-    </script>
+        newFileNameInput.disabled = fileInput.files.length > 1;
+        newFileNameInput.classList.toggle(
+          "cursor-not-allowed",
+          fileInput.files.length > 1
+        );
+        newFileNameInput.classList.toggle(
+          "bg-gray-400/50",
+          fileInput.files.length > 1
+        );
+      } else {
+        uploadText.classList.remove("hidden");
+        uploadMessage.classList.add("hidden");
+        submitButton.disabled = true;
+        submitButton.classList.add("cursor-not-allowed", "bg-gray-400");
+        submitButton.classList.remove("bg-blue-500", "hover:bg-blue-600");
+        fileCount.textContent = "";
+        uploadMessageText.textContent = "Arquivos prontos para enviar!";
+        newFileNameInput.disabled = false;
+      }
+    });
+
+
+  </script>
 </body>
 
 </html>

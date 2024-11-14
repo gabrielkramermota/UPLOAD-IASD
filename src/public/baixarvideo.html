@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Baixar Vídeo do YouTube</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col justify-center">
+  <header class="bg-gradient-to-r from-indigo-500 to-blue-500 p-2 shadow-md">
+    <div class="flex items-center max-w-4xl mx-auto justify-between">
+      <div class="flex items-center">
+        <img src="/icons/logo.svg" alt="logo iasd" class="h-16" />
+      </div>
+      <nav class="flex space-x-6">
+        <a href="/" class="text-white text-lg font-semibold">Home</a>
+        <a href="/baixarvideo.html" class="text-white text-lg font-semibold">Baixar do Youtube</a>
+        <a href="/downloads-page" class="text-white text-lg font-semibold">Downloads</a>
+        <a href="/comousar.html" class="text-white text-lg font-semibold">Como usar</a>
+      </nav>
+    </div>
+  </header>
+  <div class="flex justify-center items-center pt-8">
+    <div class="max-w-xl mx-auto bg-white p-6 rounded-lg shadow-md  w-[550px]">
+
+      <h1 class="text-2xl font-bold text-gray-800 mb-4">Baixar Vídeo do YouTube</h1>
+
+      <form class="space-y-4">
+        <div class="flex flex-col  w-full ">
+          <label class="block text-sm text-center font-medium text-gray-600" for="video-url">URL do Vídeo</label>
+          <input type="url" id="video-url" name="video_url" placeholder="Cole o link do vídeo aqui"
+            class="border border-gray-300 rounded p-2" />
+        </div>
+        <div class="flex justify-center">
+          <button type="button" id="submit-link"
+            class="cursor-pointer disabled:bg-blue-600/40 bg-blue-500 text-white py-3 px-20 rounded-[10px] hover:bg-blue-600 duration-300 font-bold mt-2">
+            Baixar Vídeo
+          </button>
+        </div>
+      </form>
+
+      <div id="download-status" class="mt-4 text-center text-xl text-gray-500">
+        Insira o link do vídeo para baixar.
+      </div>
+    </div>
+  </div>
+  <script>
+    const link = document.querySelector("#video-url");
+    const button = document.querySelector("#submit-link");
+    const downloadStatus = document.querySelector("#download-status");
+    const downloadProgress = document.querySelector("#download-progress");
+
+    button.addEventListener("click", async function () {
+      const videoUrl = link.value.trim();
+
+      // Verifica se a URL está vazia
+      if (!videoUrl) {
+        alert("Informe a URL do vídeo para baixar.");
+        return;
+      }
+
+      downloadStatus.textContent = "Download do video em andamento...";
+      button.textContent = "Baixando...";
+      button.disabled = true;
+
+      try {
+        // Inicia o download
+        const response = await fetch("http://localhost:3000/download-video", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ videoUrl })
+        }).then((res) => res.json());
+
+        if (response.message === "Vídeo baixado com sucesso") {
+          downloadStatus.innerHTML =
+            "Vídeo baixado com sucesso na pasta uploads";
+
+          downloadStatus.classList.remove("text-red-500");
+
+          downloadStatus.classList.add("text-green-500");
+        } else {
+          downloadStatus.textContent =
+            "Erro ao baixar o vídeo. Tente novamente";
+
+          downloadStatus.classList.remove("text-green-500");
+          downloadStatus.classList.add("text-red-500");
+        }
+
+        button.textContent = "Baixar Vídeo";
+        button.disabled = false;
+      } catch (error) {
+        console.error("Erro ao baixar vídeo:", error);
+        downloadStatus.textContent = "Erro ao baixar o vídeo.";
+      }
+    });
+  </script>
+</body>
+
+</html>
