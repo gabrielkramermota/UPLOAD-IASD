@@ -1,86 +1,107 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <title>Download - Upload IASD</title>
 
-    <style>
-      .file-icon {
-        width: 60px;
-        height: 60px;
-        margin-bottom: 16px;
-      }
-    </style>
-  </head>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Download - Upload IASD</title>
 
-  <body class="bg-gray-100">
-    <header class="bg-gradient-to-r from-indigo-500 to-blue-500 p-2 shadow-md">
-      <div class="flex items-center max-w-4xl mx-auto justify-between">
-        <div class="flex items-center">
-          <img src="/icons/logo.svg" alt="logo iasd" class="h-16" />
-        </div>
-        <nav class="flex space-x-6">
-          <a href="/" class="text-white text-lg font-semibold">Home</a>
-          <a href="/baixarvideo.html" class="text-white text-lg font-semibold"
-            >Baixar do Youtube</a
-          >
-          <a href="/downloads-page" class="text-white text-lg font-semibold"
-            >Downloads</a
-          >
-          <a href="/comousar.html" class="text-white text-lg font-semibold"
-            >Como usar</a
-          >
-        </nav>
+  <style>
+    .file-icon {
+      width: 60px;
+      height: 60px;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-100">
+  <header class="bg-gradient-to-r from-indigo-500 to-blue-500 p-2 shadow-md">
+    <div class="flex items-center max-w-4xl mx-auto justify-between">
+      <div class="flex items-center">
+        <img src="/icons/logo.svg" alt="logo iasd" class="h-16" />
       </div>
-    </header>
-    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md mt-6">
-      <h1 class="text-2xl font-bold text-gray-800 mb-6">
-        Arquivos Disponíveis para Download
-      </h1>
-      <div
-        id="files"
-        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-      ></div>
+
+      <!-- Navbar -->
+      <nav class="hidden md:flex space-x-6">
+        <a href="/" class="text-white text-lg font-semibold">Home</a>
+        <a href="/baixarvideo.html" class="text-white text-lg font-semibold">Baixar do Youtube</a>
+        <a href="/downloads-page" class="text-white text-lg font-semibold">Downloads</a>
+        <a href="/comousar.html" class="text-white text-lg font-semibold">Como usar</a>
+      </nav>
+
+      <!-- Hamburger Icon -->
+      <div class="md:hidden flex items-center">
+        <button id="hamburger" class="text-white">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-8 h-8">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </div>
     </div>
 
-    <script>
-      async function loadFiles() {
-        try {
-          const t = await fetch("/list-downloads"),
-            i = await t.json(),
-            n = {
-              pdf: "/icons/pdf.png",
-              jpg: "/icons/imagem.png",
-              jpeg: "/icons/imagem.png",
-              png: "/icons/imagem.png",
-              mp4: "/icons/video.png",
-              avi: "/icons/video.png",
-              mov: "/icons/video.png",
-              doc: "/icons/word.png",
-              docx: "/icons/word.png",
-              xls: "/icons/excel.png",
-              xlsx: "/icons/excel.png",
-              ppt: "/icons/powerpoint.png",
-              pptx: "/icons/powerpoint.png",
-              zip: "/icons/zip.png",
-              default: "/icons/default.png"
-            },
-            r = i
-              .map((t) => {
-                const i = t.split(".").pop().toLowerCase(),
-                  r = n[i] || n["default"],
-                  u = encodeURIComponent(t);
-                return `<div class="bg-white flex flex-col justify-between h-[300px] items-center border border-gray-200 rounded-lg shadow-md p-4 text-center"><img src="${r}" alt="File icon" class="file-icon" /><p class="text-gray-800 font-semibold">${t}</p><a href="/downloads/${u}" class="bg-green-500 text-white py-2 px-14 rounded-[10px] hover:bg-green-600 duration-300 font-bold" download>Baixar</a></div>`;
-              })
-              .join("");
-          document.getElementById("files").innerHTML = r;
-        } catch (n) {
-          console.error("Erro ao carregar arquivos de download:", n);
-        }
+    <!-- Mobile Menu -->
+    <div id="mobile-menu" class="md:hidden bg-blue-800/60 rounded-md p-4 hidden">
+      <a href="/" class="text-white text-lg font-semibold block py-2">Home</a>
+      <a href="/baixarvideo.html" class="text-white text-lg font-semibold block py-2">Baixar do Youtube</a>
+      <a href="/downloads-page" class="text-white text-lg font-semibold block py-2">Downloads</a>
+      <a href="/comousar.html" class="text-white text-lg font-semibold block py-2">Como usar</a>
+    </div>
+  </header>
+  <!-- conteudo principal  -->
+  <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md mt-6">
+    <h1 class="text-2xl font-bold text-gray-800 mb-6">
+      Arquivos Disponíveis para Download
+    </h1>
+    <div id="files" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  </div>
+
+  <script>
+    // Seleciona os elementos
+    const hamburger = document.getElementById('hamburger');
+    const mobileMenu = document.getElementById('mobile-menu');
+
+    // Alterna a visibilidade do menu móvel
+    hamburger.addEventListener('click', () => {
+      mobileMenu.classList.toggle('hidden');
+    });
+    async function loadFiles() {
+      try {
+        const t = await fetch("/list-downloads"),
+          i = await t.json(),
+          n = {
+            pdf: "/icons/pdf.png",
+            jpg: "/icons/imagem.png",
+            jpeg: "/icons/imagem.png",
+            png: "/icons/imagem.png",
+            mp4: "/icons/video.png",
+            avi: "/icons/video.png",
+            mov: "/icons/video.png",
+            doc: "/icons/word.png",
+            docx: "/icons/word.png",
+            xls: "/icons/excel.png",
+            xlsx: "/icons/excel.png",
+            ppt: "/icons/powerpoint.png",
+            pptx: "/icons/powerpoint.png",
+            zip: "/icons/zip.png",
+            default: "/icons/default.png"
+          },
+          r = i
+            .map((t) => {
+              const i = t.split(".").pop().toLowerCase(),
+                r = n[i] || n["default"],
+                u = encodeURIComponent(t);
+              return `<div class="bg-white flex flex-col justify-between h-[300px] items-center border border-gray-200 rounded-lg shadow-md p-4 text-center"><img src="${r}" alt="File icon" class="file-icon" /><p class="text-gray-800 font-semibold">${t}</p><a href="/downloads/${u}" class="bg-green-500 text-white py-2 px-14 rounded-[10px] hover:bg-green-600 duration-300 font-bold" download>Baixar</a></div>`;
+            })
+            .join("");
+        document.getElementById("files").innerHTML = r;
+      } catch (n) {
+        console.error("Erro ao carregar arquivos de download:", n);
       }
-      loadFiles();
-    </script>
-  </body>
+    }
+    loadFiles();
+  </script>
+</body>
+
 </html>

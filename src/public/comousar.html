@@ -1,69 +1,118 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <title>Como Usar - Upload IASD</title>
-  </head>
 
-  <body class="bg-gray-100">
-    <header class="bg-gradient-to-r from-indigo-500 to-blue-500 p-2 shadow-md">
-      <div class="flex items-center max-w-4xl mx-auto justify-between">
-        <div class="flex items-center">
-          <img src="/icons/logo.svg" alt="logo iasd" class="h-16" />
-        </div>
-        <nav class="flex space-x-6">
-          <a href="/" class="text-white text-lg font-semibold">Home</a>
-          <a href="/baixarvideo.html" class="text-white text-lg font-semibold"
-            >Baixar do Youtube</a
-          >
-          <a href="/downloads-page" class="text-white text-lg font-semibold"
-            >Downloads</a
-          >
-          <a href="/comousar.html" class="text-white text-lg font-semibold"
-            >Como usar</a
-          >
-        </nav>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Como Usar - Upload IASD</title>
+</head>
+
+<body class="bg-gray-100">
+  <header class="bg-gradient-to-r from-indigo-500 to-blue-500 p-2 shadow-md">
+    <div class="flex items-center max-w-4xl mx-auto justify-between">
+      <div class="flex items-center">
+        <img src="/icons/logo.svg" alt="logo iasd" class="h-16" />
       </div>
-    </header>
-    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md mt-6">
-      <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">
-        Tutoriais
-      </h1>
-      <div class="mb-8">
-        <h2 class="text-2xl font-bold text-gray-800 mb-2">
-          Tutorial de Arquivos
-        </h2>
-        <p class="text-md font-medium text-gray-700">
-          1- Clique em "Escolher Arquivo"<br />2- Escolha seu arquivo (IMAGEM,
-          PDF, VÍDEOS ETC...)<br />3- Depois clique em "Enviar".<br />
-        </p>
-      </div>
-      <div>
-        <h2 class="text-2xl font-bold text-gray-800 mb-2">Tutorial de Link</h2>
-        <p class="text-md font-medium text-gray-700">
-          1- Cole o link no campo de texto.<br />2- Depois clique em "Enviar
-          Link".<br /><span class="text-blue-600 font-semibold"
-            >- Certifique-se de que o link está correto e funcional.</span
-          >
-        </p>
-      </div>
-      <div>
-        <h2 class="text-2xl font-semibold text-gray-800 mb-2">
-          Versão do Aplicativo
-        </h2>
-        <p class="text-md font-black text-3xl text-gray-700">1.5.0</p>
-        <br /><span class="text-lg"
-          >feito por
-          <a
-            class="font-bold underline"
-            href="https://gabrielkramer.netlify.app/"
-            >Gabriel Kramer</a
-          >
-          💚</span
-        >
+
+      <!-- Navbar -->
+      <nav class="hidden md:flex space-x-6">
+        <a href="/" class="text-white text-lg font-semibold">Home</a>
+        <a href="/baixarvideo.html" class="text-white text-lg font-semibold">Baixar do Youtube</a>
+        <a href="/downloads-page" class="text-white text-lg font-semibold">Downloads</a>
+        <a href="/comousar.html" class="text-white text-lg font-semibold">Como usar</a>
+      </nav>
+
+      <!-- Hamburger Icon -->
+      <div class="md:hidden flex items-center">
+        <button id="hamburger" class="text-white">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-8 h-8">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
       </div>
     </div>
-  </body>
+
+    <!-- Mobile Menu -->
+    <div id="mobile-menu" class="md:hidden bg-blue-800/60 rounded-md p-4 hidden">
+      <a href="/" class="text-white text-lg font-semibold block py-2">Home</a>
+      <a href="/baixarvideo.html" class="text-white text-lg font-semibold block py-2">Baixar do Youtube</a>
+      <a href="/downloads-page" class="text-white text-lg font-semibold block py-2">Downloads</a>
+      <a href="/comousar.html" class="text-white text-lg font-semibold block py-2">Como usar</a>
+    </div>
+  </header>
+
+  <!-- conteudo principal -->
+  <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md mt-6">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">
+      Tutoriais
+    </h1>
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">
+        Tutorial de Arquivos
+      </h2>
+      <p class="text-md font-medium text-gray-700">
+        1- Clique em "Escolher Arquivo"<br />2- Escolha seu arquivo (IMAGEM,
+        PDF, VÍDEOS ETC...)<br />3- Depois clique em "Enviar".<br />
+      </p>
+    </div>
+    <div>
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">Tutorial de Link</h2>
+      <p class="text-md font-medium text-gray-700">
+        1- Cole o link no campo de texto.<br />2- Depois clique em "Enviar
+        Link".<br /><span class="text-blue-600 font-semibold">- Certifique-se de que o link está correto e
+          funcional.</span>
+      </p>
+    </div>
+    <div>
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">
+        Tutorial de Como Baixar Vídeo
+      </h2>
+      <p class="text-md font-medium text-gray-700">
+        1- Acesse o site da plataforma.<br />
+        2- Copie o link do vídeo do YouTube que deseja baixar.<br />
+        3- Cole o link no campo de texto "Cole o link aqui".<br />
+        4- Clique em "Baixar".<br />
+        5- O vídeo será salvo automaticamente na pasta de uploads.<br />
+        <span class="text-blue-600 font-semibold">- Certifique-se de que o vídeo esteja disponível e não protegido por
+          direitos autorais.</span>
+      </p>
+    </div>
+    <!-- Grupo WhatsApp -->
+    <div class="mt-8">
+      <h2 class="text-2xl font-semibold text-gray-800 mb-2">Junte-se ao nosso grupo do WhatsApp</h2>
+      <p class="text-md text-gray-700 mb-4">
+        Entre no grupo do WhatsApp para tirar dúvidas e acompanhar as novidades sobre o aplicativo.
+      </p>
+      <a href="https://chat.whatsapp.com/CleKCNu34096HRpspf080q" target="_blank"
+        class="bg-green-500 text-white font-bold py-2 px-4 rounded-md hover:bg-green-600">
+        Entrar no grupo
+      </a>
+    </div>
+    <br>
+    <div>
+      <h2 class="text-2xl font-semibold text-gray-800 mb-2">
+        Versão do Aplicativo
+      </h2>
+      <p class="text-md font-black text-3xl text-gray-700">1.6.0</p>
+      <br /><span class="text-lg">feito por
+        <a class="font-bold underline" href="https://gabrielkramer.netlify.app/">Gabriel Kramer</a>
+        💚</span>
+    </div>
+
+
+  </div>
+
+  <script>
+    // Seleciona os elementos
+    const hamburger = document.getElementById('hamburger');
+    const mobileMenu = document.getElementById('mobile-menu');
+
+    // Alterna a visibilidade do menu móvel
+    hamburger.addEventListener('click', () => {
+      mobileMenu.classList.toggle('hidden');
+    });
+  </script>
+</body>
+
 </html>
