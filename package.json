@@ -4,6 +4,7 @@
   "author": "Gabriel Kramer",
   "description": "Aplicação para upload de arquivos na rede local para igrejas IASD",
   "main": "server.js",
+  
   "scripts": {
     "dev": "node --watch server.js",
     "start:zap": "node src/controllers/whatsappController.js",
