@@ -1,6 +1,6 @@
 {
   "name": "upload_iasd",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "author": "Gabriel Kramer",
   "description": "Aplicação para upload de arquivos na rede local para igrejas IASD",
   "main": "server.js",

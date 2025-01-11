@@ -3,59 +3,34 @@ title Auto Instalador e Iniciador de Projeto
 
 :MENU
 echo ==============================================
-echo Bem-vindo ao UPLOAD IASD! - versao 1.6.0
+echo Bem-vindo ao UPLOAD IASD! - versao 1.6.1
 echo ==============================================
 echo.
 echo Escolha uma das opcoes abaixo para Instalacao:
 echo.
-echo 1 - Instalar NODEJS silenciosamente
-echo 2 - Instalar as dependencias do Aplicativo
-echo 3 - Criar atalhos das pastas na area de trabalho (caso as pastas ja existem)
-echo 4 - Atualizar o Projeto com a ultima versao do GitHub
+echo 1 - Instalar as dependencias do Aplicativo
+echo 2 - Criar atalhos das pastas na area de trabalho (caso as pastas ja existem)
+echo 3 - Atualizar o Projeto com a ultima versao do GitHub
 echo.
 echo ==============================================
 echo.
 echo Escolha uma das opcoes abaixo para iniciar:
 echo.
-echo 5 - Iniciar App Web 
-echo 6 - Iniciar Bot WhatsApp
-echo 7 - Sair
+echo 4 - Iniciar App Web 
+echo 5 - Iniciar Bot WhatsApp
+echo 6 - Sair
 echo.
 echo ==============================================
 set /p opcao=Digite o numero da opcao desejada: 
 
-if "%opcao%"=="1" goto INSTALL_NODEJS
-if "%opcao%"=="2" goto INSTALL_DEPS
-if "%opcao%"=="3" goto CREATE_SHORTCUTS
-if "%opcao%"=="4" goto UPDATE_APP
-if "%opcao%"=="5" goto START_WEB
-if "%opcao%"=="6" goto START_WHATSAPP
-if "%opcao%"=="7" goto EXIT
+if "%opcao%"=="1" goto INSTALL_DEPS
+if "%opcao%"=="2" goto CREATE_SHORTCUTS
+if "%opcao%"=="3" goto UPDATE_APP
+if "%opcao%"=="4" goto START_WEB
+if "%opcao%"=="5" goto START_WHATSAPP
+if "%opcao%"=="6" goto EXIT
 
 echo Opcao invalida! Por favor, escolha uma opcao valida.
-goto MENU
-
-:INSTALL_NODEJS
-echo Verificando se o Node.js esta instalado...
-
-where node >nul 2>nul
-if %ERRORLEVEL% EQU 0 (
-    echo Node.js ja esta instalado.
-) else (
-    echo Instalando NODEJS silenciosamente...
-    set "nodeInstaller=%~dp0instalacao\node-v20.17.0-x64.msi"
-    if exist "%nodeInstaller%" (
-        msiexec /i "%nodeInstaller%" /qn /norestart
-        if %ERRORLEVEL% neq 0 (
-            echo Falha ao instalar o Node.js.
-        ) else (
-            echo Node.js instalado com sucesso!
-        )
-    ) else (
-        echo Instalador do Node.js nao encontrado.
-    )
-)
-pause
 goto MENU
 
 :INSTALL_DEPS
@@ -167,31 +142,10 @@ echo Atualização concluída com sucesso!
 pause
 goto MENU
 
-:INSTALL_GIT
-echo Instalando Git silenciosamente...
-
-:: Baixar o instalador do Git
-set "gitInstaller=%~dp0instalacao\Git-installer.exe"
-if not exist "%gitInstaller%" (
-    echo Git não encontrado, baixando...
-    powershell -command "Invoke-WebRequest -Uri https://git-scm.com/download/win -OutFile '%gitInstaller%'"
-)
-
-:: Instalar o Git
-if exist "%gitInstaller%" (
-    start /wait "%gitInstaller%" /VERYSILENT /NORESTART
-) else (
-    echo Falha ao baixar o Git.
-)
-
-goto MENU
-
 :START_WEB
-
-
 if not exist "%~dp0node_modules" (
     echo A pasta "node_modules" nao foi encontrada.
-    echo Por favor, escolha a opcao 2 para instalar as dependencias.
+    echo Por favor, escolha a opcao 1 para instalar as dependencias.
     pause
     goto MENU
 )
@@ -209,7 +163,7 @@ echo.
 echo Iniciando Bot WhatsApp... Aguarde!
 if not exist "%~dp0node_modules" (
     echo A pasta "node_modules" nao foi encontrada.
-    echo Por favor, escolha a opcao 2 para instalar as dependencias.
+    echo Por favor, escolha a opcao 1 para instalar as dependencias.
     pause
     goto MENU
 )

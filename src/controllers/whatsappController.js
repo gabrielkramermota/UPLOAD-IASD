@@ -34,17 +34,7 @@ client.on("message_create", async (msg) => {
   const chat = await msg.getChat();
   if (chat.isGroup) return;
 
-  if (msg.body === "!everyone") {
-    let text = "";
-    let ids = [];
-
-    for (let participant of chat.participants) {
-      ids.push(`${participant.id.user}@c.us`);
-      text += ` @${participant.id.user} `;
-    }
-
-    await chat.sendMessage(text, { mentions: ids });
-  }
+  
 
   if (msg.body.startsWith("!arquivo")) {
     if (msg.hasMedia) {
