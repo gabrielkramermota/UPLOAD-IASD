@@ -132,7 +132,6 @@ git clone %repoUrl%
 :: Substituir os arquivos da pasta atual pelos novos do repositório clonado
 echo Substituindo arquivos...
 xcopy /s /e /y "%tempDir%\UPLOAD-IASD\*" "%~dp0"
-del /f /q "%~dp0start.bat"
 xcopy /y "%tempDir%\UPLOAD-IASD\start.bat" "%~dp0"
 
 :: Limpar pasta temporária
