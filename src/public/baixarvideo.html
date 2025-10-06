@@ -97,7 +97,6 @@
       button.disabled = true;
 
       try {
-        // Inicia o download
         const response = await fetch("http://localhost:3000/download-video", {
           method: "POST",
           headers: {
@@ -106,17 +105,12 @@
           body: JSON.stringify({ videoUrl })
         }).then((res) => res.json());
 
-        if (response.message === "Vídeo baixado com sucesso") {
-          downloadStatus.innerHTML =
-            "Vídeo baixado com sucesso na pasta uploads";
-
+        if (response.message && response.message.includes("sucesso")) {
+          downloadStatus.innerHTML = "Vídeo baixado com sucesso na pasta uploads";
           downloadStatus.classList.remove("text-red-500");
-
           downloadStatus.classList.add("text-green-500");
         } else {
-          downloadStatus.textContent =
-            "Erro ao baixar o vídeo. Tente novamente";
-
+          downloadStatus.textContent = "Erro ao baixar o vídeo. Tente novamente";
           downloadStatus.classList.remove("text-green-500");
           downloadStatus.classList.add("text-red-500");
         }
@@ -127,6 +121,7 @@
         console.error("Erro ao baixar vídeo:", error);
         downloadStatus.textContent = "Erro ao baixar o vídeo.";
       }
+
     });
   </script>
 </body>
