@@ -629,26 +629,50 @@ fn stop_whatsapp_bot() -> Result<String, String> {
             println!("Timeout ao aguardar processo terminar, continuando...");
         }
         
-        // Limpar cache e sessão após parar
-        let app_data_dir = dirs::data_local_dir()
-            .ok_or("Não foi possível encontrar diretório de dados")?;
-        let bot_dir = app_data_dir.join("UploadIASD");
-        let session_path = bot_dir.join(".wwebjs_auth");
-        let cache_path = bot_dir.join(".wwebjs_cache");
-        let qr_code_path = bot_dir.join("qr-code.txt");
-        let status_path = bot_dir.join("bot-status.json");
+    // Limpar cache e sessão após parar (garantir limpeza completa)
+    let app_data_dir = dirs::data_local_dir()
+        .ok_or("Não foi possível encontrar diretório de dados")?;
+    let bot_dir = app_data_dir.join("UploadIASD");
+    let session_path = bot_dir.join(".wwebjs_auth");
+    let cache_path = bot_dir.join(".wwebjs_cache");
+    let qr_code_path = bot_dir.join("qr-code.txt");
+    let status_path = bot_dir.join("bot-status.json");
+    
+    // Aguardar um pouco para garantir que o processo terminou completamente
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    
+    // Limpar cache e sessão completamente
+    println!("Limpando cache e sessão...");
+    let mut cleaned = false;
+    
+    // Tentar múltiplas vezes para garantir limpeza
+    for _ in 0..3 {
+        if session_path.exists() {
+            if let Ok(_) = fs::remove_dir_all(&session_path) {
+                println!("Cache de sessão removido");
+                cleaned = true;
+            }
+        }
         
-        // Limpar cache e sessão
-        println!("Limpando cache e sessão...");
-        let _ = fs::remove_dir_all(&session_path);
-        let _ = fs::remove_dir_all(&cache_path);
+        if cache_path.exists() {
+            if let Ok(_) = fs::remove_dir_all(&cache_path) {
+                println!("Cache .wwebjs_cache removido");
+                cleaned = true;
+            }
+        }
         
-        // Limpar QR code e status
-        let _ = fs::write(&qr_code_path, "");
-        let _ = fs::write(&status_path, r#"{"status":"stopped","message":"Bot parado"}"#);
-        
-        println!("Bot parado e cache limpo com sucesso");
-        Ok("Bot parado e cache limpo com sucesso".to_string())
+        if cleaned {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
+    
+    // Limpar QR code e status
+    let _ = fs::write(&qr_code_path, "");
+    let _ = fs::write(&status_path, r#"{"status":"stopped","message":"Bot parado"}"#);
+    
+    println!("Bot parado e cache limpo com sucesso");
+    Ok("Bot parado e cache limpo com sucesso".to_string())
     } else {
         // Mesmo se não houver processo registrado, limpar os arquivos
         println!("Nenhum processo registrado, limpando arquivos...");
@@ -660,9 +684,15 @@ fn stop_whatsapp_bot() -> Result<String, String> {
         let qr_code_path = bot_dir.join("qr-code.txt");
         let status_path = bot_dir.join("bot-status.json");
         
-        // Limpar cache e sessão
-        let _ = fs::remove_dir_all(&session_path);
-        let _ = fs::remove_dir_all(&cache_path);
+        // Limpar cache e sessão completamente (múltiplas tentativas)
+        for _ in 0..3 {
+            let _ = fs::remove_dir_all(&session_path);
+            let _ = fs::remove_dir_all(&cache_path);
+            if !session_path.exists() && !cache_path.exists() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
         
         // Limpar QR code e status
         let _ = fs::write(&qr_code_path, "");

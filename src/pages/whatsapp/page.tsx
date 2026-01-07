@@ -42,12 +42,19 @@ export default function WhatsappPage() {
 
   const handleStart = async () => {
     setIsStarting(true);
+    setStatus("loading");
+    setStatusMessage("Iniciando bot... Aguarde, o QR Code será gerado em breve.");
     try {
       const result = await invoke<string>("start_whatsapp_bot");
-      toast.success(result);
-      setTimeout(loadStatus, 1000);
+      toast.success("Bot iniciado! Aguarde alguns segundos para o QR Code aparecer...", {
+        duration: 4000,
+      });
+      // Aguardar um pouco antes de verificar o status
+      setTimeout(loadStatus, 2000);
     } catch (error: any) {
       toast.error(`Erro ao iniciar bot: ${error}`);
+      setStatus("stopped");
+      setStatusMessage("");
     } finally {
       setIsStarting(false);
     }
@@ -81,6 +88,8 @@ export default function WhatsappPage() {
         return <FiCheckCircle className="text-green-600" size={24} />;
       case "qr":
         return <FiLoader className="animate-spin text-blue-600" size={24} />;
+      case "loading":
+        return <FiLoader className="animate-spin text-yellow-600" size={24} />;
       case "error":
       case "disconnected":
         return <FiXCircle className="text-red-600" size={24} />;
@@ -95,6 +104,8 @@ export default function WhatsappPage() {
         return "bg-green-50 border-green-200";
       case "qr":
         return "bg-blue-50 border-blue-200";
+      case "loading":
+        return "bg-yellow-50 border-yellow-200";
       case "error":
       case "disconnected":
         return "bg-red-50 border-red-200";
@@ -109,6 +120,8 @@ export default function WhatsappPage() {
         return "Conectado e pronto";
       case "qr":
         return "Aguardando leitura do QR Code - Escaneie o código abaixo";
+      case "loading":
+        return "Iniciando bot... Aguarde, o QR Code será gerado em breve";
       case "error":
         return "Erro na conexão";
       case "disconnected":
@@ -249,6 +262,12 @@ export default function WhatsappPage() {
           </p>
           <p className="text-sm text-blue-800 mt-2">
             <strong>📁 Localização:</strong> Os arquivos são salvos na pasta de dados do aplicativo.
+          </p>
+          <p className="text-sm text-blue-800 mt-2">
+            <strong>🔄 Limpeza Automática:</strong> O cache é limpo automaticamente ao parar o bot, evitando acúmulo de arquivos.
+          </p>
+          <p className="text-sm text-yellow-800 mt-2 bg-yellow-50 p-2 rounded">
+            <strong>⏳ Ao iniciar:</strong> Aguarde alguns segundos para o QR Code aparecer. Escaneie-o com o WhatsApp para conectar.
           </p>
         </div>
       </div>

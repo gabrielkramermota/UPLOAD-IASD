@@ -22,10 +22,31 @@ function cleanSessionAndCache() {
       console.log("Cache de sessão removido");
     }
     
-    // Limpar pasta de cache
+    // Limpar pasta de cache completamente
     if (fs.existsSync(cachePath)) {
       fs.rmSync(cachePath, { recursive: true, force: true });
-      console.log("Cache removido");
+      console.log("Cache .wwebjs_cache removido completamente");
+    }
+    
+    // Garantir que não há arquivos residuais
+    const botDir = path.dirname(cachePath);
+    const cachePattern = /\.wwebjs/;
+    if (fs.existsSync(botDir)) {
+      const files = fs.readdirSync(botDir);
+      files.forEach(file => {
+        if (cachePattern.test(file)) {
+          const filePath = path.join(botDir, file);
+          try {
+            const stats = fs.statSync(filePath);
+            if (stats.isDirectory()) {
+              fs.rmSync(filePath, { recursive: true, force: true });
+              console.log(`Diretório ${file} removido`);
+            }
+          } catch (err) {
+            console.error(`Erro ao remover ${file}:`, err);
+          }
+        }
+      });
     }
   } catch (error) {
     console.error("Erro ao limpar cache:", error);
@@ -90,6 +111,24 @@ client.on("ready", () => {
   console.log("Bot WhatsApp conectado!");
   saveStatus({ status: "ready", message: "Bot conectado e pronto para receber comandos" });
   saveQRCode(""); // Limpar QR code quando conectado
+  // Limpar cache periodicamente durante a sessão para evitar acúmulo
+  // (mas manter sessão ativa)
+  if (fs.existsSync(cachePath)) {
+    try {
+      // Limpar apenas arquivos temporários do cache, não a sessão
+      const cacheFiles = fs.readdirSync(cachePath);
+      cacheFiles.forEach(file => {
+        const filePath = path.join(cachePath, file);
+        const stats = fs.statSync(filePath);
+        // Remover arquivos antigos (mais de 1 hora) do cache
+        if (Date.now() - stats.mtime.getTime() > 3600000) {
+          fs.unlinkSync(filePath);
+        }
+      });
+    } catch (error) {
+      console.error("Erro ao limpar cache antigo:", error);
+    }
+  }
 });
 
 client.on("message_create", async (msg) => {
@@ -171,10 +210,8 @@ client.on("auth_failure", (msg) => {
 client.on("disconnected", (reason) => {
   console.log("O cliente foi desconectado", reason);
   saveStatus({ status: "disconnected", message: "Bot desconectado: " + reason });
-  // Limpar cache após desconexão
-  setTimeout(() => {
-    cleanSessionAndCache();
-  }, 2000);
+  // Limpar cache e sessão imediatamente após desconexão
+  cleanSessionAndCache();
 });
 
 client.initialize();
