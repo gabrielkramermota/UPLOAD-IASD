@@ -45,7 +45,7 @@ export default function WhatsappPage() {
     setStatus("loading");
     setStatusMessage("Iniciando bot... Aguarde, o QR Code será gerado em breve.");
     try {
-      const result = await invoke<string>("start_whatsapp_bot");
+      await invoke<string>("start_whatsapp_bot");
       toast.success("Bot iniciado! Aguarde alguns segundos para o QR Code aparecer...", {
         duration: 4000,
       });

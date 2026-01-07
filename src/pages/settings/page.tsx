@@ -327,8 +327,8 @@ export default function SettingsPage() {
                 onClick={async () => {
                   try {
                     if (typeof window !== "undefined" && "__TAURI__" in window) {
-                      const { open } = await import("@tauri-apps/plugin-opener");
-                      await open(formData.uploadsPath);
+                      const { openPath } = await import("@tauri-apps/plugin-opener");
+                      await openPath(formData.uploadsPath);
                     } else {
                       window.open(formData.uploadsPath, "_blank");
                     }
@@ -392,8 +392,8 @@ export default function SettingsPage() {
                 onClick={async () => {
                   try {
                     if (typeof window !== "undefined" && "__TAURI__" in window) {
-                      const { open } = await import("@tauri-apps/plugin-opener");
-                      await open(formData.videosPath);
+                      const { openPath } = await import("@tauri-apps/plugin-opener");
+                      await openPath(formData.videosPath);
                     } else {
                       window.open(formData.videosPath, "_blank");
                     }

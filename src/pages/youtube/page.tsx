@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { FiDownload, FiYoutube, FiMusic, FiVideo, FiLoader, FiFolder, FiInfo, FiClock, FiUser, FiEye } from "react-icons/fi";
+import { useState } from "react";
+import { FiDownload, FiYoutube, FiMusic, FiVideo, FiLoader, FiFolder, FiClock, FiUser, FiEye } from "react-icons/fi";
 import { toast } from "sonner";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettings } from "../../lib/useSettings";
@@ -24,7 +24,6 @@ export default function YoutubePage() {
   const [progress, setProgress] = useState<string>("");
   const [downloadedFile, setDownloadedFile] = useState<{ path: string; name: string } | null>(null);
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
-  const [isLoadingInfo, setIsLoadingInfo] = useState(false);
 
   const isValidYoutubeUrl = (url: string): boolean => {
     const patterns = [
@@ -33,6 +32,27 @@ export default function YoutubePage() {
       /^https?:\/\/youtu\.be\/.+$/,
     ];
     return patterns.some((pattern) => pattern.test(url));
+  };
+
+  const formatDuration = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const formatNumber = (num: number): string => {
+    if (num >= 1000000) {
+      return `${(num / 1000000).toFixed(1)}M`;
+    }
+    if (num >= 1000) {
+      return `${(num / 1000).toFixed(1)}K`;
+    }
+    return num.toString();
   };
 
   const handleDownload = async () => {
@@ -126,16 +146,7 @@ export default function YoutubePage() {
         </div>
 
         {/* Informações do Vídeo */}
-        {isLoadingInfo && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center gap-2">
-              <FiLoader className="animate-spin text-blue-600" />
-              <p className="text-sm text-blue-800">Carregando informações do vídeo...</p>
-            </div>
-          </div>
-        )}
-
-        {videoInfo && !isLoadingInfo && (
+        {videoInfo && (
           <div className="mb-6 p-4 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-lg">
             <div className="flex gap-4">
               {videoInfo.thumbnail && (
@@ -308,7 +319,7 @@ export default function YoutubePage() {
                 onClick={async () => {
                   try {
                     if (typeof window !== "undefined" && "__TAURI__" in window) {
-                      const { open } = await import("@tauri-apps/plugin-opener");
+                      const { openPath } = await import("@tauri-apps/plugin-opener");
                       // Extrair pasta do caminho completo
                       let folderPath = downloadedFile.path;
                       
@@ -322,7 +333,7 @@ export default function YoutubePage() {
                       }
                       
                       console.log("Abrindo pasta:", folderPath);
-                      await open(folderPath);
+                      await openPath(folderPath);
                       toast.success("Pasta aberta!");
                     } else {
                       toast.info("Funcionalidade disponível apenas na versão desktop");

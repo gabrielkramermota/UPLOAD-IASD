@@ -6,8 +6,8 @@ export default function AboutPage() {
     try {
       // Verificar se está no Tauri
       if (typeof window !== "undefined" && "__TAURI__" in window) {
-        const { open } = await import("@tauri-apps/plugin-opener");
-        await open(url);
+        const { openUrl } = await import("@tauri-apps/plugin-opener");
+        await openUrl(url);
       } else {
         // Fallback para navegador
         window.open(url, "_blank", "noopener,noreferrer");

@@ -32,3 +32,8 @@ src-tauri/Cargo.lock
 .wwebjs_auth/
 *.wwebjs_cache
 *.wwebjs_auth
+
+# Release files (não commitar executáveis)
+release-files/
+*.exe
+*.msi
