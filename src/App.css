@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+
+@theme {
+    /* remove as cores do tailwind e coloca as minhas cores como padrão  */
+    /* --color-*: initial; */
+
+
+    /* mini paleta  */
+    --color-white: #ffffff;
+    --color-gray-100: #f7f3f6;
+    --color-gray-200: #f4e6f0;
+    --color-gray-300: #7a6e76;
+    --color-gray-400: #332e32;
+    /* cores principais  */
+    --color-primary: #003366;
+}
