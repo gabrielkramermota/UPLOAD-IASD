@@ -224,6 +224,17 @@ fn sanitize_title(title: &str) -> String {
         .to_string()
 }
 
+// Atualizar yt-dlp
+fn update_yt_dlp(path: &PathBuf) -> Result<(), String> {
+    // Remover versão antiga
+    if path.exists() {
+        let _ = fs::remove_file(path);
+    }
+    
+    // Baixar versão mais recente
+    download_yt_dlp(path)
+}
+
 // Obter ou baixar yt-dlp
 fn get_yt_dlp_path() -> Result<PathBuf, String> {
     let app_data_dir = dirs::data_local_dir()
@@ -298,6 +309,49 @@ fn download_yt_dlp(path: &PathBuf) -> Result<(), String> {
     Ok(())
 }
 
+// Limpar URL do YouTube, extraindo apenas o ID do vídeo e removendo parâmetros de playlist
+fn clean_youtube_url(url: &str) -> Result<String, String> {
+    let url = url.trim();
+    
+    if url.is_empty() {
+        return Err("URL do vídeo não fornecida.".to_string());
+    }
+    
+    // Extrair ID do vídeo de diferentes formatos de URL
+    let video_id = if url.contains("youtu.be/") {
+        // Formato curto: https://youtu.be/VIDEO_ID?si=...
+        url.split("youtu.be/")
+            .nth(1)
+            .and_then(|s| s.split('?').next())
+            .and_then(|s| s.split('&').next())
+            .map(|s| s.to_string())
+    } else if url.contains("watch?v=") {
+        // Formato longo: https://www.youtube.com/watch?v=VIDEO_ID&list=...
+        url.split("watch?v=")
+            .nth(1)
+            .and_then(|s| s.split('&').next())
+            .and_then(|s| s.split('?').next())
+            .map(|s| s.to_string())
+    } else if url.contains("/v/") {
+        // Formato alternativo: https://www.youtube.com/v/VIDEO_ID
+        url.split("/v/")
+            .nth(1)
+            .and_then(|s| s.split('?').next())
+            .and_then(|s| s.split('&').next())
+            .map(|s| s.to_string())
+    } else {
+        None
+    };
+    
+    match video_id {
+        Some(id) if !id.is_empty() => {
+            // Reconstruir URL limpa apenas com o ID do vídeo
+            Ok(format!("https://www.youtube.com/watch?v={}", id))
+        }
+        _ => Err("URL do YouTube inválida. Use um dos formatos:\n- https://www.youtube.com/watch?v=VIDEO_ID\n- https://youtu.be/VIDEO_ID".to_string())
+    }
+}
+
 // Obter formato baseado na qualidade (usando formatos mais simples para evitar erro 416)
 fn get_quality_format(quality: &str) -> &str {
     match quality {
@@ -315,12 +369,8 @@ fn get_quality_format(quality: &str) -> &str {
 
 #[tauri::command]
 fn get_video_info(url: String) -> Result<String, String> {
-    // Remover parâmetros extras da URL
-    let clean_url = url.split('&').next().unwrap_or(&url).trim();
-    
-    if clean_url.is_empty() {
-        return Err("URL do vídeo não fornecida.".to_string());
-    }
+    // Limpar URL, extraindo apenas o ID do vídeo e removendo parâmetros de playlist
+    let clean_url = clean_youtube_url(&url)?;
 
     // Obter ou baixar yt-dlp
     let yt_dlp_path = get_yt_dlp_path()?;
@@ -331,7 +381,7 @@ fn get_video_info(url: String) -> Result<String, String> {
         "--dump-single-json",
         "--no-warnings",
         "--prefer-free-formats",
-        clean_url,
+        &clean_url,
     ]);
 
     let info_output = info_cmd
@@ -350,12 +400,8 @@ fn get_video_info(url: String) -> Result<String, String> {
 
 #[tauri::command]
 fn download_youtube(url: String, format: String, quality: Option<String>) -> Result<String, String> {
-    // Remover parâmetros extras da URL
-    let clean_url = url.split('&').next().unwrap_or(&url).trim();
-    
-    if clean_url.is_empty() {
-        return Err("URL do vídeo não fornecida.".to_string());
-    }
+    // Limpar URL, extraindo apenas o ID do vídeo e removendo parâmetros de playlist
+    let clean_url = clean_youtube_url(&url)?;
 
     // Obter ou baixar yt-dlp
     let yt_dlp_path = get_yt_dlp_path()?;
@@ -373,7 +419,7 @@ fn download_youtube(url: String, format: String, quality: Option<String>) -> Res
         "--dump-single-json",
         "--no-warnings",
         "--prefer-free-formats",
-        clean_url,
+        &clean_url,
     ]);
 
     let info_output = info_cmd
@@ -410,42 +456,126 @@ fn download_youtube(url: String, format: String, quality: Option<String>) -> Res
         let _ = fs::remove_file(&temp_file);
     }
 
-    // Construir comando de download
-    let mut cmd = Command::new(&yt_dlp_path);
+    // Construir comando de download com retry e fallback
+    let mut download_success = false;
+    let mut last_error = String::new();
     
-    if format == "audio" {
-        // Baixar apenas áudio em formato MP3
-        cmd.args(&[
-            "-x",
-            "--audio-format", "mp3",
-            "--audio-quality", "0",
-            "--no-warnings",
-            "--prefer-free-formats",
-            "--no-part",
-            "-o", &temp_file.to_string_lossy(),
-            clean_url,
-        ]);
+    // Tentar diferentes estratégias de download
+    let download_attempts = if format == "audio" {
+        vec![
+            // Tentativa 1: Formato preferido
+            vec!["-x", "--audio-format", "mp3", "--audio-quality", "0"],
+            // Tentativa 2: Qualidade menor
+            vec!["-x", "--audio-format", "mp3", "--audio-quality", "5"],
+            // Tentativa 3: Qualquer formato de áudio
+            vec!["-x", "--audio-format", "best"],
+        ]
     } else {
-        // Baixar vídeo com qualidade selecionada (similar ao exemplo)
         let quality_format = get_quality_format(quality.as_deref().unwrap_or("1080p"));
-        cmd.args(&[
-            "-f", quality_format,
-            "-o", &temp_file.to_string_lossy(),
-            "--no-warnings",
-            "--prefer-free-formats",
-            "--no-part",
-            clean_url,
-        ]);
+        vec![
+            // Tentativa 1: Qualidade solicitada
+            vec!["-f", quality_format],
+            // Tentativa 2: Melhor qualidade disponível
+            vec!["-f", "best"],
+            // Tentativa 3: Qualquer formato de vídeo
+            vec!["-f", "bestvideo+bestaudio/best"],
+        ]
+    };
+    
+    for (attempt_num, format_args) in download_attempts.iter().enumerate() {
+        let mut cmd = Command::new(&yt_dlp_path);
+        
+        if format == "audio" {
+            cmd.args(format_args);
+            cmd.args(&[
+                "--no-warnings",
+                "--prefer-free-formats",
+                "--no-part",
+                "--no-mtime",
+                "--extractor-args", "youtube:player_client=android",
+                "-o", &temp_file.to_string_lossy(),
+                &clean_url,
+            ]);
+        } else {
+            cmd.args(format_args);
+            cmd.args(&[
+                "--no-warnings",
+                "--prefer-free-formats",
+                "--no-part",
+                "--no-mtime",
+                "--extractor-args", "youtube:player_client=android",
+                "-o", &temp_file.to_string_lossy(),
+                &clean_url,
+            ]);
+        }
+        
+        // Executar comando de download
+        let output = match cmd.output() {
+            Ok(output) => output,
+            Err(e) => {
+                last_error = format!("Erro ao executar yt-dlp: {}", e);
+                continue;
+            }
+        };
+        
+        if output.status.success() {
+            download_success = true;
+            break;
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            last_error = format!("Tentativa {} falhou: {}", attempt_num + 1, stderr);
+            
+            // Se o erro for "Did not get any data blocks", tentar atualizar yt-dlp
+            if stderr.contains("Did not get any data blocks") || stderr.contains("ERROR") {
+                // Limpar arquivo temporário se existir
+                let _ = fs::remove_file(&temp_file);
+                continue;
+            }
+        }
     }
-
-    // Executar comando de download
-    let output = cmd
-        .output()
-        .map_err(|e| format!("Erro ao executar yt-dlp: {}", e))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Erro no download: {}", stderr));
+    
+    if !download_success {
+        // Se o erro for "Did not get any data blocks", pode ser yt-dlp desatualizado
+        // Tentar atualizar e fazer uma última tentativa
+        if last_error.contains("Did not get any data blocks") || 
+           last_error.contains("ERROR") && last_error.contains("yt-dlp") {
+            
+            // Tentar atualizar yt-dlp
+            if let Err(update_err) = update_yt_dlp(&yt_dlp_path) {
+                return Err(format!("Erro no download: {}. Falha ao atualizar yt-dlp: {}. Verifique sua conexão com a internet.", last_error, update_err));
+            }
+            
+            // Última tentativa com yt-dlp atualizado
+            let mut cmd = Command::new(&yt_dlp_path);
+            if format == "audio" {
+                cmd.args(&[
+                    "-x", "--audio-format", "mp3", "--audio-quality", "0",
+                    "--no-warnings", "--prefer-free-formats", "--no-part", "--no-mtime",
+                    "--extractor-args", "youtube:player_client=android",
+                    "-o", &temp_file.to_string_lossy(),
+                    &clean_url,
+                ]);
+            } else {
+                cmd.args(&[
+                    "-f", "best",
+                    "--no-warnings", "--prefer-free-formats", "--no-part", "--no-mtime",
+                    "--extractor-args", "youtube:player_client=android",
+                    "-o", &temp_file.to_string_lossy(),
+                    &clean_url,
+                ]);
+            }
+            
+            let output = cmd.output()
+                .map_err(|e| format!("Erro ao executar yt-dlp atualizado: {}", e))?;
+            
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("Erro no download após atualização: {}. Verifique a URL do vídeo e sua conexão com a internet.", stderr));
+            }
+            // Download bem-sucedido após atualização do yt-dlp
+        } else {
+            return Err(format!("Erro no download: {}. Verifique a URL do vídeo e sua conexão com a internet.", last_error));
+        }
     }
 
     // Aguardar o Windows liberar o arquivo (similar ao exemplo)
@@ -530,23 +660,43 @@ fn start_whatsapp_bot() -> Result<String, String> {
         .or_else(|_| which::which("node.exe"))
         .map_err(|_| "Node.js não encontrado. Por favor, instale o Node.js primeiro.")?;
 
-    // Caminho do script do bot (relativo ao diretório do executável)
+    // Procurar o script do bot em vários locais possíveis
     let exe_dir = env::current_exe()
         .map_err(|e| format!("Erro ao obter diretório do executável: {}", e))?
         .parent()
         .ok_or("Não foi possível obter diretório pai")?
         .to_path_buf();
     
-    let mut bot_script = exe_dir.join("whatsapp-bot.cjs");
+    // Lista de locais possíveis para procurar o script
+    let mut possible_paths = vec![
+        // 1. No diretório do executável (produção - quando copiado manualmente)
+        exe_dir.join("whatsapp-bot.cjs"),
+        // 2. Em um subdiretório resources (produção - quando incluído no bundle)
+        exe_dir.join("resources").join("whatsapp-bot.cjs"),
+    ];
     
-    // Se não encontrar no diretório do executável, tentar no diretório de desenvolvimento
-    if !bot_script.exists() {
-        bot_script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("whatsapp-bot.cjs");
+    // 3. No diretório pai do executável (caso o exe esteja em uma subpasta)
+    if let Some(parent) = exe_dir.parent() {
+        possible_paths.push(parent.join("whatsapp-bot.cjs"));
+        possible_paths.push(parent.join("resources").join("whatsapp-bot.cjs"));
     }
     
-    if !bot_script.exists() {
-        return Err(format!("Script do bot não encontrado. Procurado em: {}", bot_script.display()));
-    }
+    // 4. No diretório de desenvolvimento (para debug)
+    possible_paths.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("whatsapp-bot.cjs"));
+    
+    // Procurar o primeiro caminho que existe
+    let bot_script = possible_paths
+        .into_iter()
+        .find(|path| path.exists());
+    
+    let bot_script = bot_script.ok_or_else(|| {
+        format!(
+            "Script do bot não encontrado. Procurado em:\n- {}\n- {}\n- {}",
+            exe_dir.join("whatsapp-bot.cjs").display(),
+            exe_dir.join("resources").join("whatsapp-bot.cjs").display(),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("whatsapp-bot.cjs").display()
+        )
+    })?;
 
     // Iniciar processo Node.js
     let child = Command::new(&node_path)

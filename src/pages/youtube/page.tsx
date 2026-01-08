@@ -135,14 +135,40 @@ export default function YoutubePage() {
               type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=..."
+              placeholder="https://www.youtube.com/watch?v=... ou https://youtu.be/..."
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               disabled={isDownloading}
             />
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Cole a URL completa do vídeo do YouTube
-          </p>
+          <div className="mt-2 space-y-1">
+            <p className="text-xs text-gray-500">
+              Cole a URL do vídeo do YouTube. O sistema detecta automaticamente e baixa apenas o vídeo, mesmo se a URL contiver parâmetros de playlist.
+            </p>
+            <details className="text-xs">
+              <summary className="text-primary cursor-pointer hover:underline font-medium">
+                📋 Formatos de URL aceitos
+              </summary>
+              <div className="mt-2 p-3 bg-gray-50 rounded border border-gray-200 space-y-2">
+                <div>
+                  <p className="font-semibold text-green-700 mb-1">✅ Formatos corretos (recomendados):</p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-700 ml-2">
+                    <li><code className="bg-gray-200 px-1 rounded">https://www.youtube.com/watch?v=VIDEO_ID</code></li>
+                    <li><code className="bg-gray-200 px-1 rounded">https://youtu.be/VIDEO_ID</code></li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="font-semibold text-blue-700 mb-1">ℹ️ Formatos com playlist (também funcionam):</p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-700 ml-2">
+                    <li><code className="bg-gray-200 px-1 rounded">https://www.youtube.com/watch?v=VIDEO_ID&list=...</code></li>
+                    <li><code className="bg-gray-200 px-1 rounded">https://youtu.be/VIDEO_ID?si=...</code></li>
+                  </ul>
+                  <p className="text-gray-600 mt-1 ml-2">
+                    ⚠️ O sistema detecta automaticamente e baixa apenas o vídeo individual, ignorando parâmetros de playlist.
+                  </p>
+                </div>
+              </div>
+            </details>
+          </div>
         </div>
 
         {/* Informações do Vídeo */}
