@@ -1,9 +1,16 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import Aside from "./components/aside/aside";
 import { Toaster } from "sonner";
 import { useSettings } from "./lib/useSettings";
+import Tutorial from "./components/Tutorial/Tutorial";
+import { hasSeenWelcome } from "./lib/app-store";
 
 export default function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isWelcomePage = location.pathname === "/welcome";
+  
   // Carregar configurações para aplicar tema
   try {
     useSettings();
@@ -11,14 +18,42 @@ export default function App() {
     console.error("Erro ao carregar configurações:", error);
   }
 
-  return (
-    <div className="flex">
-      <Aside />
+  // Verificar se deve redirecionar para welcome na primeira execução
+  useEffect(() => {
+    if (!isWelcomePage && location.pathname === "/") {
+      hasSeenWelcome().then((seen) => {
+        if (!seen) {
+          // Se não viu, redirecionar para welcome
+          navigate("/welcome", { replace: true });
+        }
+      }).catch(() => {
+        // Em caso de erro, redirecionar para welcome (assumir primeira execução)
+        navigate("/welcome", { replace: true });
+      });
+    }
+  }, [location.pathname, isWelcomePage, navigate]);
 
-      <main className="flex-1 ml-64 p-6">
+  // Se for página de boas-vindas, não mostrar sidebar
+  if (isWelcomePage) {
+    return (
+      <>
         <Outlet />
-      </main>
-      <Toaster position="bottom-right" richColors duration={3000} closeButton />
-    </div>
+        <Toaster position="bottom-right" richColors duration={3000} closeButton />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex">
+        <Aside />
+
+        <main className="flex-1 ml-64 p-6">
+          <Outlet />
+        </main>
+        <Toaster position="bottom-right" richColors duration={3000} closeButton />
+      </div>
+      <Tutorial />
+    </>
   );
 }

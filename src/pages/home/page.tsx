@@ -70,7 +70,7 @@ export default function Home() {
                   alt="Logo"
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = "/logo.png";
+                    (e.target as HTMLImageElement).src = "/logo.svg";
                   }}
                 />
               )}

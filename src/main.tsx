@@ -3,6 +3,11 @@ import ReactDOM from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { router } from "./routes";
 
+// Verificar primeira execução antes de renderizar
+// A verificação será feita no componente WelcomePage usando plugin-store
+// Para testar/resetar, execute no console do Tauri:
+// import { resetWelcomeAndTutorial } from './lib/app-store'; resetWelcomeAndTutorial();
+
 try {
   ReactDOM.createRoot(
     document.getElementById("root") as HTMLElement

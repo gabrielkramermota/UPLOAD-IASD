@@ -13,7 +13,7 @@ export interface Settings {
 const DEFAULT_SETTINGS: Settings = {
   churchName: "IASD XII",
   primaryColor: "#003366",
-  logoPath: "/logo.png",
+  logoPath: "/logo.svg",
   uploadsPath: "",
   videosPath: "",
 };

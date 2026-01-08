@@ -6,6 +6,7 @@ import YoutubePage from "../pages/youtube/page";
 import SettingsPage from "../pages/settings/page";
 import AboutPage from "../pages/about/page";
 import Home from "../pages/home/page";
+import WelcomePage from "../pages/welcome/page";
 
 export const router = createBrowserRouter([
   {
@@ -13,8 +14,12 @@ export const router = createBrowserRouter([
     element: <App />,
     children: [
       {
+        path: "welcome",
+        element: <WelcomePage />,
+      },
+      {
         index: true,
-        element: <Home />, // ou UploadPage se existir
+        element: <Home />,
       },
       {
         path: "bot-whatsapp",

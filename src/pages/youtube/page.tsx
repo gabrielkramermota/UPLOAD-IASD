@@ -332,7 +332,6 @@ export default function YoutubePage() {
                         folderPath = folderPath.substring(0, lastSeparator);
                       }
                       
-                      console.log("Abrindo pasta:", folderPath);
                       await openPath(folderPath);
                       toast.success("Pasta aberta!");
                     } else {

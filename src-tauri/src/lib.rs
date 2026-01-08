@@ -804,8 +804,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|_app| {
-            // Configurar ícone da janela (já configurado automaticamente via bundle.icon no tauri.conf.json)
-            // O ícone icon.ico será usado automaticamente para a janela
+            // O ícone da janela é configurado automaticamente via tauri.conf.json
+            // O icon.ico gerado do SVG (nítido) será usado automaticamente
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

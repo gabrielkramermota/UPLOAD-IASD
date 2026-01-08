@@ -28,10 +28,6 @@ export default function SettingsPage() {
   const [forceShow, setForceShow] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Debug
-  useEffect(() => {
-    console.log("SettingsPage renderizado", { loading, settings, formData });
-  }, [loading, settings, formData]);
 
   useEffect(() => {
     if (!loading && settings) {
@@ -50,7 +46,6 @@ export default function SettingsPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (loading) {
-        console.log("Timeout: forçando exibição do formulário");
         setForceShow(true);
         // Usar valores padrão se ainda estiver carregando
         if (!formData.churchName) {
@@ -112,7 +107,6 @@ export default function SettingsPage() {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("set_uploads_path", { path: formData.uploadsPath });
-        console.log("✅ Caminho de uploads salvo via comando Tauri");
       } catch (error) {
         console.error("Erro ao salvar caminho via comando Tauri:", error);
       }
@@ -190,7 +184,7 @@ export default function SettingsPage() {
                     alt="Logo preview"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = "/logo.png";
+                      (e.target as HTMLImageElement).src = "/logo.svg";
                     }}
                   />
                 ) : (
