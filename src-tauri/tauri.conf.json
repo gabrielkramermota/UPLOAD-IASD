@@ -34,6 +34,12 @@
     ],
     "resources": [
       "whatsapp-bot.cjs"
-    ]
+    ],
+    "windows": {
+      "wix": {
+        "bannerPath": "icons/icon.png",
+        "dialogImagePath": "icons/icon.png"
+      }
+    }
   }
 }

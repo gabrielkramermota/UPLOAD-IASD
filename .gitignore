@@ -37,3 +37,10 @@ src-tauri/Cargo.lock
 release-files/
 *.exe
 *.msi
+
+# Scripts de release e documentação de releases
+create-release*.ps1
+RELEASE_*.md
+commit-and-release.ps1
+build-commit-release.bat
+build-and-release.js

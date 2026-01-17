@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <!-- Metadados do produto para exibir informações do fornecedor -->
+    <Property Id="ARPHELPLINK" Value="https://github.com/gabrielkramermota/UPLOAD-IASD" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/gabrielkramermota/UPLOAD-IASD" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/gabrielkramermota/UPLOAD-IASD/releases" />
+    <Property Id="ARPCONTACT" Value="kramermota55@gmail.com" />
+    <Property Id="ARPCOMMENTS" Value="Sistema de Upload e Download para Igrejas Adventistas" />
+  </Fragment>
+</Wix>

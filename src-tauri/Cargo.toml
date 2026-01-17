@@ -1,9 +1,11 @@
 [package]
 name = "uploadiasddesktop"
 version = "2.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "Upload IASD Desktop - Sistema de Upload e Download para Igrejas Adventistas"
+authors = ["Gabriel Kramer Mota <kramermota55@gmail.com>"]
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/gabrielkramermota/UPLOAD-IASD"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
