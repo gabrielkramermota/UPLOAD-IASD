@@ -71,7 +71,7 @@ export default function WelcomePage() {
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Bem-vindo ao</h1>
               <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-2">UPLOAD IASD</h2>
-              <p className="text-blue-100 text-sm sm:text-base">Versão Desktop 2.1.0</p>
+              <p className="text-blue-100 text-sm sm:text-base">Versão Desktop 2.2.0</p>
             </div>
           </div>
 

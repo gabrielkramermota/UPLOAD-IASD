@@ -107,7 +107,7 @@ export default function Aside() {
           <h1 className="text-xl font-extrabold tracking-wide text-blue-200">
             UPLOAD IASD
           </h1>
-          <p className="text-xs text-blue-300 mt-1">v2.1.0</p>
+          <p className="text-xs text-blue-300 mt-1">v2.2.0</p>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4">
@@ -345,7 +345,7 @@ export default function Aside() {
               <h5 className="text-sm font-semibold truncate">
                 {loading ? "Carregando..." : settings.churchName}
               </h5>
-              <p className="text-xs text-blue-200">Upload IASD v2.1.0</p>
+              <p className="text-xs text-blue-200">Upload IASD v2.2.0</p>
             </div>
           </div>
         </div>

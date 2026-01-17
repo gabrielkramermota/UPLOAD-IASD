@@ -15,7 +15,7 @@ interface UpdateInfo {
 }
 
 export default function AboutPage() {
-  const [currentVersion, setCurrentVersion] = useState<string>("2.1.0");
+  const [currentVersion, setCurrentVersion] = useState<string>("2.2.0");
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isChecking, setIsChecking] = useState(false);
 
