@@ -13,28 +13,46 @@ interface TutorialStep {
 
 const tutorialSteps: TutorialStep[] = [
   {
+    id: "dashboard",
+    route: "/dashboard",
+    title: "Dashboard - Visão Geral",
+    description: "O Dashboard é o centro de controle do sistema. Aqui você encontra estatísticas de uso, total de atividades, tamanho dos arquivos e gráficos de atividades dos últimos 7 dias. Monitore tudo em um só lugar!",
+  },
+  {
     id: "home",
     route: "/",
-    title: "Upload - Tela Inicial",
-    description: "Esta é a tela principal do sistema. Aqui você pode iniciar o servidor de upload para receber arquivos enviados pelo navegador do celular ou computador.",
+    title: "Upload - Servidor Local",
+    description: "Esta é a tela principal do sistema. Aqui você pode iniciar o servidor de upload para receber arquivos enviados pelo navegador do celular ou computador. Um QR Code será gerado para acesso rápido.",
   },
   {
     id: "whatsapp",
     route: "/bot-whatsapp",
     title: "Bot WhatsApp",
-    description: "Aqui você pode iniciar o bot do WhatsApp para receber arquivos automaticamente. Escaneie o QR Code com seu WhatsApp para conectar.",
+    description: "Aqui você pode iniciar o bot do WhatsApp para receber arquivos automaticamente. Escaneie o QR Code com seu WhatsApp para conectar. Envie arquivos para o bot usando os comandos !upload ou !arquivo.",
   },
   {
     id: "youtube",
     route: "/baixar-video-youtube",
     title: "Baixar vídeo do YouTube",
-    description: "Nesta tela você pode baixar vídeos e músicas do YouTube. Basta colar o link do vídeo, escolher a qualidade e clicar em baixar.",
+    description: "Nesta tela você pode baixar vídeos e músicas do YouTube. Basta colar o link do vídeo, escolher a qualidade e clicar em baixar. Os downloads são organizados automaticamente por data e tipo.",
+  },
+  {
+    id: "history",
+    route: "/historico",
+    title: "Histórico de Atividades",
+    description: "Visualize todo o histórico de arquivos recebidos e baixados. Filtre por tipo (Upload, YouTube, WhatsApp), veja detalhes de cada arquivo e abra a pasta onde ele foi salvo. Útil para rastrear todas as atividades do sistema.",
+  },
+  {
+    id: "logs",
+    route: "/logs",
+    title: "Logs do Sistema",
+    description: "Acesse os logs do sistema para monitorar atividades e diagnosticar problemas. Os logs são atualizados automaticamente e podem ser copiados para análise. Útil para desenvolvedores e troubleshooting.",
   },
   {
     id: "settings",
     route: "/configuracoes",
     title: "Configurações",
-    description: "Nesta tela você pode personalizar o sistema: alterar o nome da igreja, escolher a cor do tema e adicionar o logo da sua igreja.",
+    description: "Nesta tela você pode personalizar o sistema: alterar o nome da igreja, escolher a cor do tema, adicionar o logo da sua igreja e configurar as pastas de destino para uploads e vídeos.",
   },
 ];
 

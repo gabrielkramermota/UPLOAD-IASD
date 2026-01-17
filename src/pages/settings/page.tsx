@@ -50,7 +50,7 @@ export default function SettingsPage() {
         // Usar valores padrão se ainda estiver carregando
         if (!formData.churchName) {
           setFormData({
-            churchName: "IASD XII",
+            churchName: "Upload IASD",
             primaryColor: "#003366",
             logoPath: "/logo.png",
             uploadsPath: "",

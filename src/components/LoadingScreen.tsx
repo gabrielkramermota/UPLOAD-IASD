@@ -28,7 +28,7 @@ export default function LoadingScreen() {
             />
           </div>
           <h1 className="text-5xl font-extrabold text-white mb-2">UPLOAD IASD</h1>
-          <p className="text-blue-100 text-lg">Versão Desktop 2.0.0</p>
+          <p className="text-blue-100 text-lg">Versão Desktop 2.1.0</p>
         </div>
         <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full mx-auto animate-spin"></div>
       </div>

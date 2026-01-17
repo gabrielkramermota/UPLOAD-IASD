@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { useSettings } from "./lib/useSettings";
 import Tutorial from "./components/Tutorial/Tutorial";
 import { hasSeenWelcome } from "./lib/app-store";
+import UpdateChecker from "./components/UpdateChecker";
 
 export default function App() {
   const location = useLocation();
@@ -37,6 +38,7 @@ export default function App() {
   if (isWelcomePage) {
     return (
       <>
+        <UpdateChecker />
         <Outlet />
         <Toaster position="bottom-right" richColors duration={3000} closeButton />
       </>
@@ -45,6 +47,7 @@ export default function App() {
 
   return (
     <>
+      <UpdateChecker />
       <div className="flex">
         <Aside />
 

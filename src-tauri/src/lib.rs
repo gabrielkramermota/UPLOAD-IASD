@@ -5,6 +5,7 @@ use std::io::Write;
 use std::sync::Mutex;
 use std::env;
 use serde_json::{Value, json};
+use semver::Version;
 
 mod upload_server;
 
@@ -614,6 +615,14 @@ fn download_youtube(url: String, format: String, quality: Option<String>) -> Res
         }
     }
 
+    // Registrar atividade no histórico
+    let file_size = final_file_path.metadata()
+        .ok()
+        .and_then(|m| Some(m.len()))
+        .unwrap_or(0);
+    
+    let _ = record_activity("youtube_download", &format!("{}", final_file_path.display()), file_size, Some(&sanitized_title));
+
     // Retornar caminho completo do arquivo
     Ok(format!(
         "{}|{}",
@@ -882,6 +891,361 @@ fn get_whatsapp_status() -> Result<String, String> {
     }
 }
 
+// ==================== SISTEMA DE HISTÓRICO E ATIVIDADES ====================
+
+// Obter caminho do arquivo de histórico
+fn get_history_file_path() -> PathBuf {
+    let app_data_dir = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
+    app_data_dir.join("UploadIASD").join("history.json")
+}
+
+// Registrar atividade no histórico
+fn record_activity(activity_type: &str, file_path: &str, file_size: u64, metadata: Option<&str>) -> Result<(), String> {
+    let history_path = get_history_file_path();
+    
+    // Criar diretório se não existir
+    if let Some(parent) = history_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Erro ao criar diretório: {}", e))?;
+    }
+    
+    // Ler histórico existente
+    let mut history: Vec<Value> = if history_path.exists() {
+        if let Ok(content) = fs::read_to_string(&history_path) {
+            serde_json::from_str(&content).unwrap_or_else(|_| vec![])
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+    
+    // Criar entrada de atividade
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    
+    let activity = json!({
+        "id": format!("{}-{}", timestamp, uuid::Uuid::new_v4().to_string().chars().take(8).collect::<String>()),
+        "type": activity_type, // "upload", "youtube_download", "whatsapp_receive"
+        "file_path": file_path,
+        "file_name": PathBuf::from(file_path).file_name()
+            .and_then(|n| n.to_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "arquivo".to_string()),
+        "file_size": file_size,
+        "metadata": metadata.unwrap_or(""),
+        "timestamp": timestamp,
+        "date": chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+    });
+    
+    // Adicionar no início (mais recente primeiro)
+    history.insert(0, activity);
+    
+    // Manter apenas últimos 1000 registros
+    if history.len() > 1000 {
+        history.truncate(1000);
+    }
+    
+    // Salvar histórico
+    let json_str = serde_json::to_string_pretty(&history)
+        .map_err(|e| format!("Erro ao serializar histórico: {}", e))?;
+    
+    fs::write(&history_path, json_str)
+        .map_err(|e| format!("Erro ao salvar histórico: {}", e))?;
+    
+    Ok(())
+}
+
+// Organização automática por data/tipo
+fn organize_file_by_date_type(file_path: &PathBuf, activity_type: &str) -> Result<PathBuf, String> {
+    let file_name = file_path.file_name()
+        .ok_or("Nome de arquivo inválido")?
+        .to_str()
+        .ok_or("Erro ao converter nome do arquivo")?;
+    
+    // Obter data atual
+    let now = chrono::Local::now();
+    let date_folder = now.format("%Y-%m-%d").to_string();
+    
+    // Determinar tipo de arquivo
+    let file_type = if let Some(ext) = file_path.extension().and_then(|e| e.to_str()) {
+        let ext_lower = ext.to_lowercase();
+        if ["mp3", "wav", "ogg", "flac", "aac", "m4a"].contains(&ext_lower.as_str()) {
+            "audio"
+        } else if ["mp4", "avi", "mkv", "mov", "webm", "flv"].contains(&ext_lower.as_str()) {
+            "video"
+        } else if ["jpg", "jpeg", "png", "gif", "bmp", "webp"].contains(&ext_lower.as_str()) {
+            "image"
+        } else if ["pdf", "doc", "docx", "txt"].contains(&ext_lower.as_str()) {
+            "document"
+        } else {
+            "other"
+        }
+    } else {
+        "other"
+    };
+    
+    // Determinar pasta base baseado no tipo de atividade
+    let base_dir = match activity_type {
+        "youtube_download" => get_videos_path()?,
+        "whatsapp_receive" | "upload" => get_uploads_path()?,
+        _ => get_uploads_path()?,
+    };
+    
+    // Criar estrutura: base/YYYY-MM-DD/tipo/origem/arquivo
+    let organized_path = base_dir
+        .join(&date_folder)
+        .join(file_type)
+        .join(activity_type)
+        .join(file_name);
+    
+    // Criar diretórios necessários
+    if let Some(parent) = organized_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Erro ao criar diretório organizado: {}", e))?;
+    }
+    
+    // Mover arquivo se necessário (se já existe em outro lugar)
+    if file_path.exists() && file_path != &organized_path {
+        // Verificar se arquivo de destino já existe
+        let mut final_path = organized_path.clone();
+        let mut counter = 1;
+        
+        while final_path.exists() {
+            let stem = final_path.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("file");
+            let extension = final_path.extension()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
+            
+            let new_filename = if extension.is_empty() {
+                format!("{} ({})", stem, counter)
+            } else {
+                format!("{} ({}).{}", stem, counter, extension)
+            };
+            
+            final_path = organized_path.parent()
+                .unwrap()
+                .join(&new_filename);
+            counter += 1;
+        }
+        
+        fs::rename(file_path, &final_path)
+            .map_err(|e| format!("Erro ao mover arquivo: {}", e))?;
+        
+        Ok(final_path)
+    } else {
+        Ok(organized_path)
+    }
+}
+
+// Obter histórico de atividades
+#[tauri::command]
+fn get_activity_history(limit: Option<usize>, activity_type: Option<String>) -> Result<String, String> {
+    let history_path = get_history_file_path();
+    
+    if !history_path.exists() {
+        return Ok(json!([]).to_string());
+    }
+    
+    let content = fs::read_to_string(&history_path)
+        .map_err(|e| format!("Erro ao ler histórico: {}", e))?;
+    
+    let mut history: Vec<Value> = serde_json::from_str(&content)
+        .map_err(|e| format!("Erro ao parsear histórico: {}", e))?;
+    
+    // Filtrar por tipo se especificado
+    if let Some(filter_type) = activity_type {
+        history.retain(|item| {
+            item.get("type")
+                .and_then(|v| v.as_str())
+                .map(|t| t == filter_type)
+                .unwrap_or(false)
+        });
+    }
+    
+    // Aplicar limite
+    let limit_value = limit.unwrap_or(100);
+    history.truncate(limit_value);
+    
+    Ok(json!(history).to_string())
+}
+
+// Obter estatísticas
+#[tauri::command]
+fn get_statistics() -> Result<String, String> {
+    let history_path = get_history_file_path();
+    
+    let mut stats = json!({
+        "total_activities": 0,
+        "total_size": 0,
+        "by_type": {},
+        "by_date": {},
+        "recent_activities": []
+    });
+    
+    if history_path.exists() {
+        if let Ok(content) = fs::read_to_string(&history_path) {
+            if let Ok(history) = serde_json::from_str::<Vec<Value>>(&content) {
+                let mut by_type: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+                let mut by_date: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+                let mut total_size: u64 = 0;
+                
+                for activity in &history {
+                    // Contar por tipo
+                    if let Some(type_str) = activity.get("type").and_then(|v| v.as_str()) {
+                        *by_type.entry(type_str.to_string()).or_insert(0) += 1;
+                    }
+                    
+                    // Contar por data
+                    if let Some(date_str) = activity.get("date").and_then(|v| v.as_str()) {
+                        let date_only = date_str.split(' ').next().unwrap_or(date_str);
+                        *by_date.entry(date_only.to_string()).or_insert(0) += 1;
+                    }
+                    
+                    // Somar tamanhos
+                    if let Some(size) = activity.get("file_size").and_then(|v| v.as_u64()) {
+                        total_size += size;
+                    }
+                }
+                
+                // Pegar últimas 10 atividades
+                let recent: Vec<&Value> = history.iter().take(10).collect();
+                
+                stats = json!({
+                    "total_activities": history.len(),
+                    "total_size": total_size,
+                    "by_type": by_type,
+                    "by_date": by_date,
+                    "recent_activities": recent
+                });
+            }
+        }
+    }
+    
+    Ok(stats.to_string())
+}
+
+// Obter logs do sistema
+#[tauri::command]
+fn get_system_logs(limit: Option<usize>) -> Result<String, String> {
+    let app_data_dir = dirs::data_local_dir()
+        .ok_or("Não foi possível encontrar diretório de dados")?;
+    
+    let logs_dir = app_data_dir.join("UploadIASD").join("logs");
+    fs::create_dir_all(&logs_dir)
+        .map_err(|e| format!("Erro ao criar diretório de logs: {}", e))?;
+    
+    let log_file = logs_dir.join("system.log");
+    
+    let logs_content = if log_file.exists() {
+        fs::read_to_string(&log_file).unwrap_or_else(|_| String::new())
+    } else {
+        String::new()
+    };
+    
+    // Processar logs (últimas linhas)
+    let lines: Vec<&str> = logs_content.lines().collect();
+    let limit_value = limit.unwrap_or(100);
+    let recent_lines: Vec<&str> = lines.iter().rev().take(limit_value).copied().rev().collect();
+    
+    Ok(json!(recent_lines).to_string())
+}
+
+// Sistema de atualizações
+#[tauri::command]
+fn check_for_updates(current_version: String) -> Result<String, String> {
+    // URL do GitHub Releases API (ajuste para seu repositório)
+    let github_api_url = "https://api.github.com/repos/gabrielkramermota/UPLOAD-IASD/releases/latest";
+    
+    // Criar cliente HTTP com User-Agent (GitHub API requer User-Agent)
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("Upload-IASD-Desktop/2.1.0")
+        .build()
+        .map_err(|e| format!("Erro ao criar cliente HTTP: {}", e))?;
+    
+    // Fazer requisição HTTP para verificar a versão mais recente
+    let response = client
+        .get(github_api_url)
+        .send()
+        .map_err(|e| format!("Erro ao verificar atualizações: {}", e))?;
+    
+    // Verificar status da resposta
+    let status = response.status();
+    if !status.is_success() {
+        // Se for 403, pode ser rate limit ou repositório privado
+        if status == 403 {
+            return Err("Erro ao verificar atualizações: Acesso negado. Verifique se o repositório é público e tente novamente mais tarde.".to_string());
+        }
+        // Se for 404, repositório não encontrado
+        if status == 404 {
+            return Err("Repositório não encontrado. Verifique se o nome do repositório está correto.".to_string());
+        }
+        return Err(format!("Erro ao verificar atualizações: Status {}", status));
+    }
+    
+    let json: Value = response.json()
+        .map_err(|e| format!("Erro ao processar resposta: {}", e))?;
+    
+    // Extrair versão mais recente (formato: "v2.0.0" ou "2.0.0")
+    let latest_version_tag = json.get("tag_name")
+        .and_then(|v| v.as_str())
+        .ok_or("Versão não encontrada na resposta")?;
+    
+    // Remover "v" do início se existir
+    let latest_version = latest_version_tag.trim_start_matches('v');
+    
+    // Comparar versões usando semver
+    let current_semver = Version::parse(&current_version)
+        .map_err(|e| format!("Versão atual inválida: {}", e))?;
+    
+    let latest_semver = Version::parse(latest_version)
+        .map_err(|e| format!("Versão mais recente inválida: {}", e))?;
+    
+    // Verificar se há atualização disponível
+    if latest_semver > current_semver {
+        // Extrair informações da release
+        let release_name = json.get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Nova versão disponível");
+        
+        let release_body = json.get("body")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        
+        let download_url = json.get("assets")
+            .and_then(|assets| assets.as_array())
+            .and_then(|assets| assets.first())
+            .and_then(|asset| asset.get("browser_download_url"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        
+        // Retornar JSON com informações da atualização
+        Ok(json!({
+            "hasUpdate": true,
+            "currentVersion": current_version,
+            "latestVersion": latest_version,
+            "releaseName": release_name,
+            "releaseNotes": release_body,
+            "downloadUrl": download_url
+        }).to_string())
+    } else {
+        // Sem atualização disponível
+        Ok(json!({
+            "hasUpdate": false,
+            "currentVersion": current_version,
+            "latestVersion": latest_version
+        }).to_string())
+    }
+}
+
+#[tauri::command]
+fn get_app_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
 // Gerenciar servidor de upload
 static UPLOAD_SERVER_HANDLE: Mutex<Option<tokio::task::JoinHandle<Result<(), String>>>> = Mutex::new(None);
 
@@ -970,7 +1334,12 @@ pub fn run() {
             stop_upload_server,
             get_upload_server_url,
             get_store_path,
-            set_uploads_path
+            set_uploads_path,
+            check_for_updates,
+            get_app_version,
+            get_activity_history,
+            get_statistics,
+            get_system_logs
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

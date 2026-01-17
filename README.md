@@ -4,12 +4,12 @@
 
 ![Upload IASD Logo](./public/logo.svg)
 
-**Versão 2.0.0**
+**Versão 2.1.0**
 
 Um aplicativo desktop desenvolvido para facilitar o upload e download de arquivos, especialmente voltado para sonoplastas e técnicos de som de igrejas.
 
 [![Windows](https://img.shields.io/badge/Windows-10+-0078D6?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
-[![Version](https://img.shields.io/badge/Version-2.0.0-green.svg)](https://github.com/gabrielkramermota/UPLOAD-IASD/releases)
+[![Version](https://img.shields.io/badge/Version-2.1.0-green.svg)](https://github.com/gabrielkramermota/UPLOAD-IASD/releases)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 [📥 Download](#-instalação) • [📖 Documentação](#-funcionalidades) • [🐛 Suporte](#-problemas-e-suporte)
@@ -31,8 +31,11 @@ Um aplicativo desktop desenvolvido para facilitar o upload e download de arquivo
 
 ## ✨ Funcionalidades
 
+### 📊 Dashboard
+Visualize estatísticas completas do sistema em tempo real: total de atividades, tamanho dos arquivos, gráficos de atividades por data e distribuição por tipo. Controle tudo de um só lugar!
+
 ### 🎬 Download do YouTube
-Baixe vídeos e áudios do YouTube em diferentes qualidades, com interface intuitiva e organização automática.
+Baixe vídeos e áudios do YouTube em diferentes qualidades, com interface intuitiva e organização automática por data e tipo.
 
 ### 💬 Bot WhatsApp Integrado
 Receba arquivos via WhatsApp automaticamente. Conecte facilmente escaneando o QR Code e receba arquivos enviados para o bot.
@@ -40,11 +43,20 @@ Receba arquivos via WhatsApp automaticamente. Conecte facilmente escaneando o QR
 ### 📤 Servidor de Upload Local
 Servidor HTTP local para receber uploads via navegador. Acesse de qualquer dispositivo na mesma rede e faça upload de múltiplos arquivos.
 
+### 📋 Histórico de Atividades
+Visualize todo o histórico de arquivos recebidos e baixados. Filtre por tipo (Upload, YouTube, WhatsApp), veja detalhes de cada arquivo e acesse rapidamente suas pastas.
+
+### 📝 Logs do Sistema
+Acesse logs completos do sistema para monitoramento e diagnóstico. Visualize atividades em tempo real, copie logs para análise e monitore o funcionamento do aplicativo.
+
 ### 🎨 Interface Moderna
 Interface intuitiva, responsiva e totalmente personalizável. Configure cores, logo e pastas de destino.
 
 ### ⚙️ Configurações Personalizáveis
-Personalize o sistema conforme sua necessidade: altere o nome da igreja, escolha a cor do tema e adicione o logo.
+Personalize o sistema conforme sua necessidade: altere o nome da igreja, escolha a cor do tema, adicione o logo e configure pastas de destino.
+
+### 🔄 Atualizações Automáticas
+O sistema verifica automaticamente por atualizações e notifica quando novas versões estão disponíveis.
 
 ---
 
@@ -90,14 +102,14 @@ Informações sobre o sistema, versão e desenvolvedor.
 
 #### 🎯 Opção 1 - Instalador MSI (Recomendado)
 
-1. Baixe o arquivo `uploadiasddesktop_2.0.0_x64_en-US.msi` da [página de releases](https://github.com/gabrielkramermota/UPLOAD-IASD/releases)
+1. Baixe o arquivo `uploadiasddesktop_2.1.0_x64_en-US.msi` da [página de releases](https://github.com/gabrielkramermota/UPLOAD-IASD/releases)
 2. Execute o arquivo baixado
 3. Siga o assistente de instalação
 4. O app aparecerá no menu Iniciar do Windows
 
 #### 📦 Opção 2 - Instalador NSIS
 
-1. Baixe o arquivo `uploadiasddesktop_2.0.0_x64-setup.exe` da [página de releases](https://github.com/gabrielkramermota/UPLOAD-IASD/releases)
+1. Baixe o arquivo `uploadiasddesktop_2.1.0_x64-setup.exe` da [página de releases](https://github.com/gabrielkramermota/UPLOAD-IASD/releases)
 2. Execute o arquivo e siga o assistente de instalação
 
 #### 💾 Opção 3 - Executável Portátil
@@ -147,9 +159,39 @@ Na primeira execução, o Windows pode exibir um aviso de segurança:
 - ✅ Suporte para múltiplos arquivos simultâneos
 - ✅ Visualização do IP local para acesso
 
+### 📊 Dashboard e Estatísticas
+
+- ✅ Visão geral das atividades do sistema
+- ✅ Gráficos de atividades dos últimos 7 dias
+- ✅ Estatísticas por tipo de atividade
+- ✅ Total de arquivos e tamanho total
+- ✅ Lista de atividades recentes
+- ✅ Atualização automática
+
+### 📋 Histórico de Atividades
+
+- ✅ Lista completa de todos os uploads e downloads
+- ✅ Filtros por tipo (Upload, YouTube, WhatsApp)
+- ✅ Informações detalhadas (nome, tamanho, data, origem)
+- ✅ Acesso rápido às pastas dos arquivos
+- ✅ Limite configurável de registros exibidos
+- ✅ Organização cronológica (mais recente primeiro)
+
+### 📝 Logs e Debug
+
+- ✅ Visualização de logs do sistema em tempo real
+- ✅ Destaque por nível (erro, aviso, info)
+- ✅ Copiar logs individuais ou todos
+- ✅ Auto-refresh a cada 5 segundos
+- ✅ Limite configurável de linhas exibidas
+- ✅ Formatação colorida para melhor leitura
+
 ### 📋 Funcionalidades por Requisito
 
 #### ✅ Funciona SEM Node.js
+- Dashboard e estatísticas
+- Histórico de atividades
+- Logs do sistema
 - Download de vídeos do YouTube
 - Servidor de upload local
 - Interface e configurações
@@ -254,7 +296,7 @@ Desenvolvido com ❤️ para a comunidade
 
 <div align="center">
 
-**Versão 2.0.0** • **Última atualização:** 2026
+**Versão 2.1.0** • **Última atualização:** 2026
 
 [⬆️ Voltar ao topo](#-upload-iasd-desktop)
 

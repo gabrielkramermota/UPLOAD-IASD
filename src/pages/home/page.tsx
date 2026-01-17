@@ -87,7 +87,7 @@ export default function Home() {
             UPLOAD IASD
           </h1>
           <p className="text-xl text-gray-400 font-medium">
-            Versão 2.0.0
+            Versão 2.1.0
           </p>
         </div>
 
