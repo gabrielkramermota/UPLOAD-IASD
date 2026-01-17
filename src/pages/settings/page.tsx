@@ -320,14 +320,26 @@ export default function SettingsPage() {
               <button
                 onClick={async () => {
                   try {
-                    if (typeof window !== "undefined" && "__TAURI__" in window) {
-                      const { openPath } = await import("@tauri-apps/plugin-opener");
-                      await openPath(formData.uploadsPath);
-                    } else {
-                      window.open(formData.uploadsPath, "_blank");
+                    const { openPath } = await import("@tauri-apps/plugin-opener");
+                    
+                    if (!formData.uploadsPath || formData.uploadsPath.trim() === "") {
+                      toast.error("Caminho da pasta inválido");
+                      return;
                     }
+                    
+                    await openPath(formData.uploadsPath.trim());
+                    toast.success("Pasta aberta!");
                   } catch (error: any) {
-                    toast.error(`Erro ao abrir pasta: ${error.message || error}`);
+                    console.error("Erro ao abrir pasta:", error);
+                    const errorMessage = error?.message || error?.toString() || "Erro desconhecido";
+                    
+                    if (errorMessage.includes("permission") || errorMessage.includes("Permission")) {
+                      toast.error("Sem permissão para abrir esta pasta. Verifique as permissões do sistema.");
+                    } else if (errorMessage.includes("not found") || errorMessage.includes("não encontrado")) {
+                      toast.error("Pasta não encontrada.");
+                    } else {
+                      toast.error(`Erro ao abrir pasta: ${errorMessage}`);
+                    }
                   }
                 }}
                 className="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
@@ -385,14 +397,26 @@ export default function SettingsPage() {
               <button
                 onClick={async () => {
                   try {
-                    if (typeof window !== "undefined" && "__TAURI__" in window) {
-                      const { openPath } = await import("@tauri-apps/plugin-opener");
-                      await openPath(formData.videosPath);
-                    } else {
-                      window.open(formData.videosPath, "_blank");
+                    const { openPath } = await import("@tauri-apps/plugin-opener");
+                    
+                    if (!formData.videosPath || formData.videosPath.trim() === "") {
+                      toast.error("Caminho da pasta inválido");
+                      return;
                     }
+                    
+                    await openPath(formData.videosPath.trim());
+                    toast.success("Pasta aberta!");
                   } catch (error: any) {
-                    toast.error(`Erro ao abrir pasta: ${error.message || error}`);
+                    console.error("Erro ao abrir pasta:", error);
+                    const errorMessage = error?.message || error?.toString() || "Erro desconhecido";
+                    
+                    if (errorMessage.includes("permission") || errorMessage.includes("Permission")) {
+                      toast.error("Sem permissão para abrir esta pasta. Verifique as permissões do sistema.");
+                    } else if (errorMessage.includes("not found") || errorMessage.includes("não encontrado")) {
+                      toast.error("Pasta não encontrada.");
+                    } else {
+                      toast.error(`Erro ao abrir pasta: ${errorMessage}`);
+                    }
                   }
                 }}
                 className="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"

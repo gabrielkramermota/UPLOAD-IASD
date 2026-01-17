@@ -56,21 +56,43 @@ const tutorialSteps: TutorialStep[] = [
   },
 ];
 
+// Função exportada para iniciar o tutorial manualmente
+export function startTutorial() {
+  // Disparar evento customizado para o componente Tutorial reagir
+  window.dispatchEvent(new CustomEvent('start-tutorial'));
+}
+
 export default function Tutorial() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
+  const [isManualOpen, setIsManualOpen] = useState(false);
 
   useEffect(() => {
-    // Verificar se deve mostrar o tutorial
+    // Verificar se deve mostrar o tutorial automaticamente (primeira vez)
     Promise.all([hasSeenWelcome(), hasSeenTutorial()]).then(([seenWelcome, seenTutorial]) => {
       // Mostrar tutorial apenas se viu a tela de boas-vindas mas não viu o tutorial
-      if (seenWelcome && !seenTutorial) {
+      if (seenWelcome && !seenTutorial && !isManualOpen) {
         setIsVisible(true);
         // Navegar para a primeira tela do tutorial
         navigate(tutorialSteps[0].route, { replace: true });
       }
     });
+  }, [navigate, isManualOpen]);
+
+  // Listener para evento de abertura manual
+  useEffect(() => {
+    const handleStartTutorial = () => {
+      setIsManualOpen(true);
+      setIsVisible(true);
+      setCurrentStep(0);
+      navigate(tutorialSteps[0].route, { replace: true });
+    };
+
+    window.addEventListener('start-tutorial', handleStartTutorial);
+    return () => {
+      window.removeEventListener('start-tutorial', handleStartTutorial);
+    };
   }, [navigate]);
 
   useEffect(() => {
@@ -99,7 +121,11 @@ export default function Tutorial() {
   };
 
   const handleFinish = async () => {
-    await setTutorialSeen(true);
+    // Só marcar como visto se não foi aberto manualmente
+    if (!isManualOpen) {
+      await setTutorialSeen(true);
+    }
+    setIsManualOpen(false); // Resetar flag
     setIsVisible(false);
     // Navegar para a home após o tutorial
     navigate("/", { replace: true });

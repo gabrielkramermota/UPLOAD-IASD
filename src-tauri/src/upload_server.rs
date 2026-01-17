@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Extension, Multipart},
+    extract::{Extension, Multipart, DefaultBodyLimit},
     http::StatusCode,
     response::Html,
     routing::{get, post},
@@ -7,13 +7,102 @@ use axum::{
 };
 use serde_json::json;
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
+use chrono::Local;
+use dirs;
+use uuid::Uuid;
+
+// Função auxiliar para formatar tamanho
+fn format_size(bytes: usize) -> String {
+    if bytes == 0 {
+        return "0 Bytes".to_string();
+    }
+    let k = 1024;
+    let sizes = ["Bytes", "KB", "MB", "GB"];
+    let i = (bytes as f64).log(k as f64) as usize;
+    format!("{:.2} {}", bytes as f64 / (k as f64).powi(i as i32), sizes[i.min(sizes.len() - 1)])
+}
 
 #[derive(Clone)]
 struct AppState {
     upload_dir: PathBuf,
+}
+
+// Função auxiliar para escrever log
+fn write_log(message: &str) {
+    if let Some(app_data_dir) = dirs::data_local_dir() {
+        let logs_dir = app_data_dir.join("UploadIASD").join("logs");
+        if let Ok(_) = fs::create_dir_all(&logs_dir) {
+            let log_file = logs_dir.join("system.log");
+            if let Ok(mut file) = fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&log_file)
+            {
+                let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
+                let _ = writeln!(file, "[{}] {}", timestamp, message);
+            }
+        }
+    }
+}
+
+// Função auxiliar para registrar atividade no histórico
+fn record_activity(activity_type: &str, file_path: &str, file_size: u64, metadata: Option<&str>) {
+    if let Some(app_data_dir) = dirs::data_local_dir() {
+        let history_path = app_data_dir.join("UploadIASD").join("history.json");
+        
+        // Criar diretório se não existir
+        if let Some(parent) = history_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        
+        // Ler histórico existente
+        let mut history: Vec<serde_json::Value> = if history_path.exists() {
+            if let Ok(content) = fs::read_to_string(&history_path) {
+                serde_json::from_str(&content).unwrap_or_else(|_| vec![])
+            } else {
+                vec![]
+            }
+        } else {
+            vec![]
+        };
+        
+        // Criar entrada de atividade
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        
+        let activity = json!({
+            "id": format!("{}-{}", timestamp, Uuid::new_v4().to_string().chars().take(8).collect::<String>()),
+            "type": activity_type,
+            "file_path": file_path,
+            "file_name": PathBuf::from(file_path).file_name()
+                .and_then(|n| n.to_str())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "arquivo".to_string()),
+            "file_size": file_size,
+            "metadata": metadata.unwrap_or(""),
+            "timestamp": timestamp,
+            "date": Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+        });
+        
+        // Adicionar no início (mais recente primeiro)
+        history.insert(0, activity);
+        
+        // Manter apenas últimos 1000 registros
+        if history.len() > 1000 {
+            history.truncate(1000);
+        }
+        
+        // Salvar histórico
+        if let Ok(json_str) = serde_json::to_string_pretty(&history) {
+            let _ = fs::write(&history_path, json_str);
+        }
+    }
 }
 
 // Página HTML para upload
@@ -146,8 +235,8 @@ async fn upload_page() -> Html<&'static str> {
         <div class="upload-area" id="uploadArea">
             <p style="font-size: 48px; margin-bottom: 10px;">📁</p>
             <p><strong>Clique ou arraste arquivos aqui</strong></p>
-            <p style="color: #999; font-size: 14px; margin-top: 5px;">Múltiplos arquivos suportados</p>
-            <input type="file" id="fileInput" multiple>
+            <p style="color: #999; font-size: 14px; margin-top: 5px;">Múltiplos arquivos suportados - Todos os tipos de documentos</p>
+            <input type="file" id="fileInput" multiple accept="*/*">
         </div>
         
         <div id="fileList" class="file-list"></div>
@@ -212,6 +301,8 @@ async fn upload_page() -> Html<&'static str> {
             return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
         }
         
+        // Função auxiliar para formatar tamanho (usada no servidor Rust)
+        
         async function uploadFiles() {
             if (selectedFiles.length === 0) {
                 showMessage('Por favor, selecione arquivos primeiro', 'error');
@@ -223,13 +314,18 @@ async fn upload_page() -> Html<&'static str> {
             
             const formData = new FormData();
             selectedFiles.forEach(file => {
-                formData.append('files', file);
+                console.log('Adicionando arquivo:', file.name, 'Tipo:', file.type, 'Tamanho:', file.size);
+                formData.append('files', file, file.name);
             });
             
             try {
-                const response = await fetch('/upload', {
+                // Obter URL completa do servidor
+                const serverUrl = window.location.origin;
+                console.log('Enviando para:', `${serverUrl}/upload`);
+                const response = await fetch(`${serverUrl}/upload`, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    // Não definir Content-Type manualmente - o navegador define automaticamente com boundary
                 });
                 
                 let result;
@@ -261,7 +357,17 @@ async fn upload_page() -> Html<&'static str> {
                 }
             } catch (error) {
                 console.error('Erro na requisição:', error);
-                showMessage(`❌ Erro de conexão: ${error.message}. Verifique se o servidor está rodando.`, 'error');
+                let errorMsg = 'Erro de conexão. Verifique se o servidor está rodando.';
+                if (error.message) {
+                    errorMsg = `❌ Erro: ${error.message}`;
+                }
+                showMessage(errorMsg, 'error');
+                
+                // Log detalhado no console
+                console.error('Detalhes do erro:', {
+                    error: error,
+                    files: selectedFiles.map(f => ({ name: f.name, type: f.type, size: f.size }))
+                });
             } finally {
                 uploadBtn.disabled = false;
                 uploadBtn.textContent = 'Enviar Arquivos';
@@ -278,7 +384,9 @@ async fn upload_page() -> Html<&'static str> {
             const links = linksText.split('\n').filter(link => link.trim());
             
             try {
-                const response = await fetch('/links', {
+                // Obter URL completa do servidor
+                const serverUrl = window.location.origin;
+                const response = await fetch(`${serverUrl}/links`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ links })
@@ -333,32 +441,50 @@ async fn upload_files(
                     let filename = match field.file_name() {
                         Some(name) => name.to_string(),
                         None => {
+                            write_log("AVISO: Campo 'files' sem nome de arquivo, pulando...");
                             continue;
                         }
                     };
 
-                    // Ler dados com timeout
+                    // Log do arquivo recebido
+                    write_log(&format!("Recebendo arquivo: {} (tipo: {:?})", filename, field.content_type()));
+
+                    // Ler dados com timeout (aumentado para arquivos grandes como PDFs)
                     let data_result = tokio::time::timeout(
-                        std::time::Duration::from_secs(600), // 10 minutos para ler o arquivo
+                        std::time::Duration::from_secs(1800), // 30 minutos para ler o arquivo (PDFs podem ser grandes)
                         field.bytes()
                     ).await;
 
                     let data = match data_result {
-                        Ok(Ok(bytes)) => bytes,
+                        Ok(Ok(bytes)) => {
+                            write_log(&format!("Arquivo {} lido com sucesso, tamanho: {} bytes", filename, bytes.len()));
+                            bytes
+                        },
                         Ok(Err(e)) => {
                             let err_msg = format!("Erro ao ler dados do arquivo {}: {}", filename, e);
-                            errors.push(err_msg);
+                            errors.push(err_msg.clone());
+                            write_log(&format!("ERRO: {}", err_msg));
                             continue;
                         }
                     Err(_) => {
-                        let err_msg = format!("Timeout ao ler arquivo {}", filename);
-                        errors.push(err_msg);
+                        let err_msg = format!("Timeout ao ler arquivo {} (arquivo muito grande ou conexão lenta)", filename);
+                        errors.push(err_msg.clone());
+                        write_log(&format!("ERRO: {}", err_msg));
                             continue;
                         }
                     };
 
+                    // Sanitizar nome do arquivo (remover caracteres perigosos)
+                    let sanitized_filename = filename
+                        .chars()
+                        .map(|c| match c {
+                            '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => '_',
+                            _ => c,
+                        })
+                        .collect::<String>();
+                    
                     // Gerar nome único se arquivo já existir
-                    let mut file_path = state.upload_dir.join(&filename);
+                    let mut file_path = state.upload_dir.join(&sanitized_filename);
                     let mut counter = 1;
                     
                     // Se arquivo já existe, adicionar número antes da extensão
@@ -383,10 +509,18 @@ async fn upload_files(
                     match fs::write(&file_path, &data) {
                         Ok(_) => {
                             uploaded_count += 1;
+                            let file_size = data.len() as u64;
+                            
+                            // Registrar no log
+                            write_log(&format!("Arquivo enviado com sucesso: {} -> {} ({})", filename, sanitized_filename, format_size(data.len())));
+                            
+                            // Registrar atividade no histórico
+                            record_activity("upload", &file_path.to_string_lossy(), file_size, Some(&sanitized_filename));
                         }
                         Err(e) => {
                             let err_msg = format!("Erro ao salvar arquivo {}: {}", filename, e);
-                            errors.push(err_msg);
+                            errors.push(err_msg.clone());
+                            write_log(&format!("ERRO ao salvar arquivo: {}", err_msg));
                         }
                     }
                 }
@@ -470,17 +604,25 @@ async fn upload_links(
     let filename = format!("links_{}.txt", timestamp);
     let file_path = state.upload_dir.join(&filename);
 
-    match fs::write(&file_path, content) {
+    match fs::write(&file_path, &content) {
         Ok(_) => {
+            // Registrar no log
+            write_log(&format!("Links salvos: {} link(s) em {}", links.len(), filename));
+            
+            // Registrar atividade no histórico
+            record_activity("upload", &file_path.to_string_lossy(), content.len() as u64, Some("links"));
+            
             Ok(Json(json!({
                 "message": format!("{} link(s) salvos com sucesso!", links.len()),
                 "filename": filename
             })))
         }
         Err(e) => {
+            let err_msg = format!("Erro ao salvar arquivo: {}", e);
+            write_log(&format!("ERRO: {}", err_msg));
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({"error": format!("Erro ao salvar arquivo: {}", e)})),
+                Json(json!({"error": err_msg})),
             ))
         }
     }
@@ -490,6 +632,9 @@ pub async fn start_upload_server(port: u16, upload_dir: PathBuf) -> Result<(), S
     fs::create_dir_all(&upload_dir)
         .map_err(|e| format!("Erro ao criar diretório de uploads: {}", e))?;
 
+    // Registrar início do servidor
+    write_log(&format!("Servidor de upload iniciado na porta {}", port));
+
     let state = Arc::new(AppState { upload_dir: upload_dir.clone() });
 
     let app = Router::new()
@@ -498,6 +643,8 @@ pub async fn start_upload_server(port: u16, upload_dir: PathBuf) -> Result<(), S
         .route("/upload", post(upload_files))
         .route("/links", post(upload_links))
         .layer(CorsLayer::permissive())
+        // Aumentar limite do body para 10GB (para suportar vídeos grandes)
+        .layer(DefaultBodyLimit::max(10 * 1024 * 1024 * 1024))
         .layer(Extension(state));
 
     let addr = format!("0.0.0.0:{}", port);

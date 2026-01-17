@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FiDownload, FiYoutube, FiMusic, FiVideo, FiLoader, FiFolder, FiClock, FiUser, FiEye } from "react-icons/fi";
 import { toast } from "sonner";
 import { invoke } from "@tauri-apps/api/core";
@@ -19,7 +19,7 @@ export default function YoutubePage() {
   const { settings, loading: settingsLoading } = useSettings();
   const [url, setUrl] = useState("");
   const [downloadType, setDownloadType] = useState<DownloadType>(null);
-  const [quality, setQuality] = useState<Quality>("1080p");
+  const [quality, setQuality] = useState<Quality>("best");
   const [isDownloading, setIsDownloading] = useState(false);
   const [progress, setProgress] = useState<string>("");
   const [downloadedFile, setDownloadedFile] = useState<{ path: string; name: string } | null>(null);
@@ -55,6 +55,37 @@ export default function YoutubePage() {
     return num.toString();
   };
 
+  // Buscar informações do vídeo quando a URL for válida
+  useEffect(() => {
+    const fetchVideoInfo = async () => {
+      if (!url.trim() || !isValidYoutubeUrl(url)) {
+        setVideoInfo(null);
+        return;
+      }
+
+      try {
+        const infoJson = await invoke<string>("get_video_info", { url: url.trim() });
+        const info = JSON.parse(infoJson);
+        
+        setVideoInfo({
+          title: info.title || "Sem título",
+          duration: info.duration || 0,
+          uploader: info.uploader || info.channel || "Desconhecido",
+          view_count: info.view_count || 0,
+          thumbnail: info.thumbnail || info.thumbnails?.[0]?.url || "",
+        });
+      } catch (error) {
+        // Silenciar erro se não conseguir buscar informações
+        console.log("Não foi possível buscar informações do vídeo:", error);
+        setVideoInfo(null);
+      }
+    };
+
+    // Debounce para não fazer muitas requisições
+    const timeoutId = setTimeout(fetchVideoInfo, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [url]);
+
   const handleDownload = async () => {
     if (!url.trim()) {
       toast.error("Por favor, insira a URL do vídeo do YouTube");
@@ -87,6 +118,24 @@ export default function YoutubePage() {
       const [filePath, fileName] = result.split("|");
       
       setDownloadedFile({ path: filePath, name: fileName });
+      
+      // Se não tiver videoInfo, tentar buscar novamente após o download
+      if (!videoInfo && url.trim()) {
+        try {
+          const infoJson = await invoke<string>("get_video_info", { url: url.trim() });
+          const info = JSON.parse(infoJson);
+          setVideoInfo({
+            title: info.title || fileName,
+            duration: info.duration || 0,
+            uploader: info.uploader || info.channel || "Desconhecido",
+            view_count: info.view_count || 0,
+            thumbnail: info.thumbnail || info.thumbnails?.[0]?.url || "",
+          });
+        } catch (error) {
+          console.log("Não foi possível buscar informações do vídeo após download:", error);
+        }
+      }
+      
       toast.success("Download concluído com sucesso!");
       setProgress(`Download concluído: ${fileName}`);
     } catch (error: any) {
@@ -322,32 +371,54 @@ export default function YoutubePage() {
         {/* Arquivo baixado */}
         {downloadedFile && !isDownloading && (
           <div className="mb-6 p-4 bg-green-50 border-2 border-green-300 rounded-lg shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <p className="text-sm font-bold text-green-900">
-                    Download concluído com sucesso!
-                  </p>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="bg-white/50 rounded p-2">
-                    <p className="text-xs font-medium text-gray-600 mb-1">Nome do arquivo:</p>
-                    <p className="text-green-800 font-mono break-all">{downloadedFile.name}</p>
+            <div className="flex items-start gap-4">
+              {/* Thumbnail do vídeo */}
+              {videoInfo?.thumbnail && (
+                <img
+                  src={videoInfo.thumbnail}
+                  alt="Thumbnail do vídeo"
+                  className="w-32 h-24 object-cover rounded-lg flex-shrink-0 border-2 border-green-200"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              )}
+              <div className="flex-1 flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <p className="text-sm font-bold text-green-900">
+                      Download concluído com sucesso!
+                    </p>
                   </div>
-                  <div className="bg-white/50 rounded p-2">
-                    <p className="text-xs font-medium text-gray-600 mb-1">Localização:</p>
-                    <p className="text-green-800 font-mono text-xs break-all">{downloadedFile.path}</p>
+                  {videoInfo && (
+                    <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 text-sm">
+                      {videoInfo.title}
+                    </h3>
+                  )}
+                  <div className="space-y-2 text-sm">
+                    <div className="bg-white/50 rounded p-2">
+                      <p className="text-xs font-medium text-gray-600 mb-1">Nome do arquivo:</p>
+                      <p className="text-green-800 font-mono break-all text-xs">{downloadedFile.name}</p>
+                    </div>
+                    <div className="bg-white/50 rounded p-2">
+                      <p className="text-xs font-medium text-gray-600 mb-1">Localização:</p>
+                      <p className="text-green-800 font-mono text-xs break-all">{downloadedFile.path}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <button
-                onClick={async () => {
-                  try {
-                    if (typeof window !== "undefined" && "__TAURI__" in window) {
+                <button
+                  onClick={async () => {
+                    try {
                       const { openPath } = await import("@tauri-apps/plugin-opener");
+                      
+                      if (!downloadedFile?.path || downloadedFile.path.trim() === "") {
+                        toast.error("Caminho do arquivo inválido");
+                        return;
+                      }
+                      
                       // Extrair pasta do caminho completo
-                      let folderPath = downloadedFile.path;
+                      let folderPath = downloadedFile.path.trim();
                       
                       // Encontrar o último separador (Windows usa \, Linux/Mac usa /)
                       const lastBackslash = folderPath.lastIndexOf("\\");
@@ -358,22 +429,35 @@ export default function YoutubePage() {
                         folderPath = folderPath.substring(0, lastSeparator);
                       }
                       
+                      // Validar se o caminho não está vazio
+                      if (!folderPath || folderPath.trim() === "") {
+                        toast.error("Não foi possível determinar a pasta do arquivo");
+                        return;
+                      }
+                      
                       await openPath(folderPath);
                       toast.success("Pasta aberta!");
-                    } else {
-                      toast.info("Funcionalidade disponível apenas na versão desktop");
+                    } catch (error: any) {
+                      console.error("Erro ao abrir pasta:", error);
+                      const errorMessage = error?.message || error?.toString() || "Erro desconhecido";
+                      
+                      // Mensagens de erro mais específicas
+                      if (errorMessage.includes("permission") || errorMessage.includes("Permission")) {
+                        toast.error("Sem permissão para abrir esta pasta. Verifique as permissões do sistema.");
+                      } else if (errorMessage.includes("not found") || errorMessage.includes("não encontrado")) {
+                        toast.error("Pasta não encontrada. O arquivo pode ter sido movido ou deletado.");
+                      } else {
+                        toast.error(`Erro ao abrir pasta: ${errorMessage}`);
+                      }
                     }
-                  } catch (error: any) {
-                    console.error("Erro ao abrir pasta:", error);
-                    toast.error(`Erro ao abrir pasta: ${error?.message || error}`);
-                  }
-                }}
-                className="px-4 py-2 text-white rounded-lg transition-opacity flex items-center gap-2 text-sm font-medium shadow-sm hover:opacity-90 cursor-pointer"
-                style={{ backgroundColor: settingsLoading ? "#9ca3af" : settings.primaryColor }}
-              >
-                <FiFolder />
-                Abrir Pasta
-              </button>
+                  }}
+                  className="px-4 py-2 text-white rounded-lg transition-opacity flex items-center gap-2 text-sm font-medium shadow-sm hover:opacity-90 cursor-pointer flex-shrink-0"
+                  style={{ backgroundColor: settingsLoading ? "#9ca3af" : settings.primaryColor }}
+                >
+                  <FiFolder />
+                  Abrir Pasta
+                </button>
+              </div>
             </div>
           </div>
         )}

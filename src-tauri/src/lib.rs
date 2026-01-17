@@ -958,6 +958,8 @@ fn record_activity(activity_type: &str, file_path: &str, file_size: u64, metadat
 }
 
 // Organização automática por data/tipo
+// Função preparada para uso futuro quando a organização automática for ativada
+#[allow(dead_code)]
 fn organize_file_by_date_type(file_path: &PathBuf, activity_type: &str) -> Result<PathBuf, String> {
     let file_name = file_path.file_name()
         .ok_or("Nome de arquivo inválido")?
@@ -1146,10 +1148,11 @@ fn get_system_logs(limit: Option<usize>) -> Result<String, String> {
         String::new()
     };
     
-    // Processar logs (últimas linhas)
+    // Processar logs (últimas linhas - mais recentes primeiro)
     let lines: Vec<&str> = logs_content.lines().collect();
     let limit_value = limit.unwrap_or(100);
-    let recent_lines: Vec<&str> = lines.iter().rev().take(limit_value).copied().rev().collect();
+    // Pegar as últimas linhas e inverter para mostrar as mais recentes primeiro
+    let recent_lines: Vec<&str> = lines.iter().rev().take(limit_value).copied().collect();
     
     Ok(json!(recent_lines).to_string())
 }

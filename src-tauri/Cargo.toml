@@ -1,6 +1,6 @@
 [package]
 name = "uploadiasddesktop"
-version = "2.1.0"
+version = "2.1.1"
 description = "Upload IASD Desktop - Sistema de Upload e Download para Igrejas Adventistas"
 authors = ["Gabriel Kramer Mota <kramermota55@gmail.com>"]
 edition = "2021"

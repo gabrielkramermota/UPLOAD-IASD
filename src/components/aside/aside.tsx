@@ -10,9 +10,11 @@ import {
   FiBarChart2,
   FiClock,
   FiFileText,
+  FiHelpCircle,
 } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
 import { useSettings } from "../../lib/useSettings";
+import { startTutorial } from "../Tutorial/Tutorial";
 
 function MenuToggle({
   isOpen,
@@ -299,6 +301,27 @@ export default function Aside() {
             </li>
           </ul>
         </nav>
+
+        {/* Botão de Tutorial */}
+        <div className="px-3 py-2 border-t border-white/10">
+          <button
+            onClick={() => startTutorial()}
+            className="w-full flex items-center px-3 py-2 text-sm text-blue-100 hover:text-white rounded-lg transition-colors"
+            style={{
+              backgroundColor: 'transparent',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = hoverColor;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+            title="Rever tutorial"
+          >
+            <FiHelpCircle className="mr-3" />
+            Rever Tutorial
+          </button>
+        </div>
 
         <div 
           className="absolute bottom-0 w-full border-t border-white/10 p-4"

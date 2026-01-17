@@ -10,6 +10,7 @@ import {
   FiPlay
 } from "react-icons/fi";
 import { FaWhatsapp as FaWhatsappSolid } from "react-icons/fa";
+import { toast } from "sonner";
 
 interface Activity {
   id: string;
@@ -85,20 +86,46 @@ export default function HistoryPage() {
 
   const handleOpenFile = async (filePath: string) => {
     try {
-      // Abrir pasta contendo o arquivo
-      const pathParts = filePath.split(/[/\\]/);
-      pathParts.pop(); // Remover nome do arquivo
-      const folderPath = pathParts.join("/");
+      const { openPath } = await import("@tauri-apps/plugin-opener");
       
-      // Tentar abrir no explorador do sistema
-      if (typeof window !== "undefined" && "__TAURI__" in window) {
-        const { openUrl } = await import("@tauri-apps/plugin-opener");
-        // Abrir pasta no Windows
-        const folderPathWindows = folderPath.replace(/\//g, "\\");
-        await openUrl(`file:///${folderPathWindows}`);
+      if (!filePath || filePath.trim() === "") {
+        toast.error("Caminho do arquivo inválido");
+        return;
       }
-    } catch (error) {
-      console.error("Erro ao abrir arquivo:", error);
+      
+      // Extrair pasta do caminho completo
+      let folderPath = filePath.trim();
+      
+      // Encontrar o último separador (Windows usa \, Linux/Mac usa /)
+      const lastBackslash = folderPath.lastIndexOf("\\");
+      const lastSlash = folderPath.lastIndexOf("/");
+      const lastSeparator = Math.max(lastBackslash, lastSlash);
+      
+      if (lastSeparator > 0) {
+        folderPath = folderPath.substring(0, lastSeparator);
+      }
+      
+      // Validar se o caminho não está vazio
+      if (!folderPath || folderPath.trim() === "") {
+        toast.error("Não foi possível determinar a pasta do arquivo");
+        return;
+      }
+      
+      // Abrir pasta no explorador do sistema
+      await openPath(folderPath);
+      toast.success("Pasta aberta no explorador!");
+    } catch (error: any) {
+      console.error("Erro ao abrir pasta:", error);
+      const errorMessage = error?.message || error?.toString() || "Erro desconhecido";
+      
+      // Mensagens de erro mais específicas
+      if (errorMessage.includes("permission") || errorMessage.includes("Permission")) {
+        toast.error("Sem permissão para abrir esta pasta. Verifique as permissões do sistema.");
+      } else if (errorMessage.includes("not found") || errorMessage.includes("não encontrado")) {
+        toast.error("Pasta não encontrada. O arquivo pode ter sido movido ou deletado.");
+      } else {
+        toast.error(`Erro ao abrir pasta: ${errorMessage}`);
+      }
     }
   };
 
