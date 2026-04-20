@@ -44,3 +44,5 @@ RELEASE_*.md
 commit-and-release.ps1
 build-commit-release.bat
 build-and-release.js
+limpar-dados*.ps1
+release.bat
