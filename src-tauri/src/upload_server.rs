@@ -1,18 +1,18 @@
+use crate::log::{log_error, log_info};
 use axum::{
-    extract::{Extension, Multipart, DefaultBodyLimit},
+    extract::{DefaultBodyLimit, Extension, Multipart},
     http::StatusCode,
     response::Html,
     routing::{get, post},
     Json, Router,
 };
+use chrono::Local;
+use dirs;
 use serde_json::json;
 use std::fs;
-use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
-use chrono::Local;
-use dirs;
 use uuid::Uuid;
 
 // Função auxiliar para formatar tamanho
@@ -23,7 +23,11 @@ fn format_size(bytes: usize) -> String {
     let k = 1024;
     let sizes = ["Bytes", "KB", "MB", "GB"];
     let i = (bytes as f64).log(k as f64) as usize;
-    format!("{:.2} {}", bytes as f64 / (k as f64).powi(i as i32), sizes[i.min(sizes.len() - 1)])
+    format!(
+        "{:.2} {}",
+        bytes as f64 / (k as f64).powi(i as i32),
+        sizes[i.min(sizes.len() - 1)]
+    )
 }
 
 #[derive(Clone)]
@@ -31,34 +35,16 @@ struct AppState {
     upload_dir: PathBuf,
 }
 
-// Função auxiliar para escrever log
-fn write_log(message: &str) {
-    if let Some(app_data_dir) = dirs::data_local_dir() {
-        let logs_dir = app_data_dir.join("UploadIASD").join("logs");
-        if let Ok(_) = fs::create_dir_all(&logs_dir) {
-            let log_file = logs_dir.join("system.log");
-            if let Ok(mut file) = fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&log_file)
-            {
-                let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
-                let _ = writeln!(file, "[{}] {}", timestamp, message);
-            }
-        }
-    }
-}
-
 // Função auxiliar para registrar atividade no histórico
 fn record_activity(activity_type: &str, file_path: &str, file_size: u64, metadata: Option<&str>) {
     if let Some(app_data_dir) = dirs::data_local_dir() {
         let history_path = app_data_dir.join("UploadIASD").join("history.json");
-        
+
         // Criar diretório se não existir
         if let Some(parent) = history_path.parent() {
             let _ = fs::create_dir_all(parent);
         }
-        
+
         // Ler histórico existente
         let mut history: Vec<serde_json::Value> = if history_path.exists() {
             if let Ok(content) = fs::read_to_string(&history_path) {
@@ -69,13 +55,13 @@ fn record_activity(activity_type: &str, file_path: &str, file_size: u64, metadat
         } else {
             vec![]
         };
-        
+
         // Criar entrada de atividade
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         let activity = json!({
             "id": format!("{}-{}", timestamp, Uuid::new_v4().to_string().chars().take(8).collect::<String>()),
             "type": activity_type,
@@ -89,15 +75,15 @@ fn record_activity(activity_type: &str, file_path: &str, file_size: u64, metadat
             "timestamp": timestamp,
             "date": Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
         });
-        
+
         // Adicionar no início (mais recente primeiro)
         history.insert(0, activity);
-        
+
         // Manter apenas últimos 1000 registros
         if history.len() > 1000 {
             history.truncate(1000);
         }
-        
+
         // Salvar histórico
         if let Ok(json_str) = serde_json::to_string_pretty(&history) {
             let _ = fs::write(&history_path, json_str);
@@ -107,7 +93,8 @@ fn record_activity(activity_type: &str, file_path: &str, file_size: u64, metadat
 
 // Página HTML para upload
 async fn upload_page() -> Html<&'static str> {
-    Html(r#"
+    Html(
+        r#"
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -417,7 +404,8 @@ async fn upload_page() -> Html<&'static str> {
     </script>
 </body>
 </html>
-    "#)
+    "#,
+    )
 }
 
 // Endpoint para upload de arquivos
@@ -432,8 +420,9 @@ async fn upload_files(
     loop {
         let field_result = tokio::time::timeout(
             std::time::Duration::from_secs(300), // 5 minutos de timeout por campo
-            multipart.next_field()
-        ).await;
+            multipart.next_field(),
+        )
+        .await;
 
         match field_result {
             Ok(Ok(Some(field))) => {
@@ -441,35 +430,48 @@ async fn upload_files(
                     let filename = match field.file_name() {
                         Some(name) => name.to_string(),
                         None => {
-                            write_log("AVISO: Campo 'files' sem nome de arquivo, pulando...");
+                            log_info("AVISO: Campo 'files' sem nome de arquivo, pulando...");
                             continue;
                         }
                     };
 
                     // Log do arquivo recebido
-                    write_log(&format!("Recebendo arquivo: {} (tipo: {:?})", filename, field.content_type()));
+                    log_info(&format!(
+                        "Recebendo arquivo: {} (tipo: {:?})",
+                        filename,
+                        field.content_type()
+                    ));
 
                     // Ler dados com timeout (aumentado para arquivos grandes como PDFs)
                     let data_result = tokio::time::timeout(
                         std::time::Duration::from_secs(1800), // 30 minutos para ler o arquivo (PDFs podem ser grandes)
-                        field.bytes()
-                    ).await;
+                        field.bytes(),
+                    )
+                    .await;
 
                     let data = match data_result {
                         Ok(Ok(bytes)) => {
-                            write_log(&format!("Arquivo {} lido com sucesso, tamanho: {} bytes", filename, bytes.len()));
+                            log_info(&format!(
+                                "Arquivo {} lido com sucesso, tamanho: {} bytes",
+                                filename,
+                                bytes.len()
+                            ));
                             bytes
-                        },
+                        }
                         Ok(Err(e)) => {
-                            let err_msg = format!("Erro ao ler dados do arquivo {}: {}", filename, e);
+                            let err_msg =
+                                format!("Erro ao ler dados do arquivo {}: {}", filename, e);
                             errors.push(err_msg.clone());
-                            write_log(&format!("ERRO: {}", err_msg));
+                            log_error(&format!("ERRO: {}", err_msg));
                             continue;
                         }
-                    Err(_) => {
-                        let err_msg = format!("Timeout ao ler arquivo {} (arquivo muito grande ou conexão lenta)", filename);
-                        errors.push(err_msg.clone());
-                        write_log(&format!("ERRO: {}", err_msg));
+                        Err(_) => {
+                            let err_msg = format!(
+                                "Timeout ao ler arquivo {} (arquivo muito grande ou conexão lenta)",
+                                filename
+                            );
+                            errors.push(err_msg.clone());
+                            log_error(&format!("ERRO: {}", err_msg));
                             continue;
                         }
                     };
@@ -482,45 +484,55 @@ async fn upload_files(
                             _ => c,
                         })
                         .collect::<String>();
-                    
+
                     // Gerar nome único se arquivo já existir
                     let mut file_path = state.upload_dir.join(&sanitized_filename);
                     let mut counter = 1;
-                    
+
                     // Se arquivo já existe, adicionar número antes da extensão
                     while file_path.exists() {
-                        let stem = file_path.file_stem()
+                        let stem = file_path
+                            .file_stem()
                             .and_then(|s| s.to_str())
                             .unwrap_or("file");
-                        let extension = file_path.extension()
-                            .and_then(|s| s.to_str())
-                            .unwrap_or("");
-                        
+                        let extension =
+                            file_path.extension().and_then(|s| s.to_str()).unwrap_or("");
+
                         let new_filename = if extension.is_empty() {
                             format!("{} ({})", stem, counter)
                         } else {
                             format!("{} ({}).{}", stem, counter, extension)
                         };
-                        
+
                         file_path = state.upload_dir.join(&new_filename);
                         counter += 1;
                     }
-                    
+
                     match fs::write(&file_path, &data) {
                         Ok(_) => {
                             uploaded_count += 1;
                             let file_size = data.len() as u64;
-                            
+
                             // Registrar no log
-                            write_log(&format!("Arquivo enviado com sucesso: {} -> {} ({})", filename, sanitized_filename, format_size(data.len())));
-                            
+                            log_info(&format!(
+                                "Arquivo enviado com sucesso: {} -> {} ({})",
+                                filename,
+                                sanitized_filename,
+                                format_size(data.len())
+                            ));
+
                             // Registrar atividade no histórico
-                            record_activity("upload", &file_path.to_string_lossy(), file_size, Some(&sanitized_filename));
+                            record_activity(
+                                "upload",
+                                &file_path.to_string_lossy(),
+                                file_size,
+                                Some(&sanitized_filename),
+                            );
                         }
                         Err(e) => {
                             let err_msg = format!("Erro ao salvar arquivo {}: {}", filename, e);
                             errors.push(err_msg.clone());
-                            write_log(&format!("ERRO ao salvar arquivo: {}", err_msg));
+                            log_error(&format!("ERRO ao salvar arquivo: {}", err_msg));
                         }
                     }
                 }
@@ -575,13 +587,10 @@ async fn upload_links(
     Extension(state): Extension<Arc<AppState>>,
     Json(payload): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-
-    let links = payload["links"]
-        .as_array()
-        .ok_or((
-            StatusCode::BAD_REQUEST,
-            Json(json!({"error": "Campo 'links' não encontrado ou inválido"})),
-        ))?;
+    let links = payload["links"].as_array().ok_or((
+        StatusCode::BAD_REQUEST,
+        Json(json!({"error": "Campo 'links' não encontrado ou inválido"})),
+    ))?;
 
     if links.is_empty() {
         return Err((
@@ -607,11 +616,20 @@ async fn upload_links(
     match fs::write(&file_path, &content) {
         Ok(_) => {
             // Registrar no log
-            write_log(&format!("Links salvos: {} link(s) em {}", links.len(), filename));
-            
+            log_info(&format!(
+                "Links salvos: {} link(s) em {}",
+                links.len(),
+                filename
+            ));
+
             // Registrar atividade no histórico
-            record_activity("upload", &file_path.to_string_lossy(), content.len() as u64, Some("links"));
-            
+            record_activity(
+                "upload",
+                &file_path.to_string_lossy(),
+                content.len() as u64,
+                Some("links"),
+            );
+
             Ok(Json(json!({
                 "message": format!("{} link(s) salvos com sucesso!", links.len()),
                 "filename": filename
@@ -619,7 +637,7 @@ async fn upload_links(
         }
         Err(e) => {
             let err_msg = format!("Erro ao salvar arquivo: {}", e);
-            write_log(&format!("ERRO: {}", err_msg));
+            log_error(&format!("ERRO: {}", err_msg));
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({"error": err_msg})),
@@ -633,9 +651,11 @@ pub async fn start_upload_server(port: u16, upload_dir: PathBuf) -> Result<(), S
         .map_err(|e| format!("Erro ao criar diretório de uploads: {}", e))?;
 
     // Registrar início do servidor
-    write_log(&format!("Servidor de upload iniciado na porta {}", port));
+    log_info(&format!("Servidor de upload iniciado na porta {}", port));
 
-    let state = Arc::new(AppState { upload_dir: upload_dir.clone() });
+    let state = Arc::new(AppState {
+        upload_dir: upload_dir.clone(),
+    });
 
     let app = Router::new()
         .route("/", get(upload_page))
