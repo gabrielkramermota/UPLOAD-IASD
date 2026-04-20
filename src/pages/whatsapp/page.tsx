@@ -3,6 +3,7 @@ import { FaWhatsapp } from "react-icons/fa";
 import { FiPlay, FiSquare, FiRefreshCw, FiLoader, FiCheckCircle, FiXCircle, FiAlertCircle } from "react-icons/fi";
 import { toast } from "sonner";
 import { invoke } from "@tauri-apps/api/core";
+import { logClientEvent } from "../../lib/logger";
 import QRCode from "react-qr-code";
 import { useSettings } from "../../lib/useSettings";
 
@@ -31,6 +32,7 @@ export default function WhatsappPage() {
       }
     } catch (error: any) {
       console.error("Erro ao carregar status:", error);
+      void logClientEvent("ERROR", "Erro ao carregar status do bot WhatsApp", error?.message ?? String(error));
     }
   };
 
@@ -51,10 +53,13 @@ export default function WhatsappPage() {
       });
       // Aguardar um pouco antes de verificar o status
       setTimeout(loadStatus, 2000);
+      void logClientEvent("INFO", "Bot WhatsApp iniciado via interface");
     } catch (error: any) {
-      toast.error(`Erro ao iniciar bot: ${error}`);
+      const errorMessage = error?.message || error?.toString() || "Erro desconhecido";
+      toast.error(`Erro ao iniciar bot: ${errorMessage}`);
       setStatus("stopped");
       setStatusMessage("");
+      void logClientEvent("ERROR", "Erro ao iniciar bot WhatsApp", error?.message ?? String(error));
     } finally {
       setIsStarting(false);
     }
@@ -71,12 +76,15 @@ export default function WhatsappPage() {
       setStatusMessage("");
       // Forçar atualização do status
       setTimeout(loadStatus, 500);
+      void logClientEvent("INFO", "Bot WhatsApp parado via interface");
     } catch (error: any) {
-      toast.error(`Erro ao parar bot: ${error}`);
+      const errorMessage = error?.message || error?.toString() || "Erro desconhecido";
+      toast.error(`Erro ao parar bot: ${errorMessage}`);
       // Mesmo em caso de erro, limpar o estado
       setStatus("stopped");
       setQrCode("");
       setStatusMessage("");
+      void logClientEvent("ERROR", "Erro ao parar bot WhatsApp", error?.message ?? String(error));
     } finally {
       setIsStopping(false);
     }
