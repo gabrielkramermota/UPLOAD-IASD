@@ -1,64 +1,71 @@
-name: Release
+name: Build Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-22.04]
+        include:
+          - platform: windows-latest
+            bundle: msi
+          - platform: macos-latest
+            bundle: dmg
+          - platform: ubuntu-22.04
+            bundle: appimage
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Install Rust
+      - name: Setup Rust
         uses: dtolnay/rust-action@stable
 
-      - name: Install Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Tauri app
+      - name: Build Tauri
+        run: npm run tauri build -- --bundles ${{ matrix.bundle }}
+
+      - name: Find artifacts
+        shell: bash
+        run: |
+          find src-tauri/target/release/bundle -type f \( -name "*.msi" -o -name "*.dmg" -o -name "*.AppImage" \) -exec ls -lh {} \;
+
+      - name: Upload Windows artifact
         if: matrix.platform == 'windows-latest'
-        run: npm run tauri build -- --bundles msi
-
-      - name: Build Tauri app
-        if: matrix.platform == 'macos-latest'
-        run: npm run tauri build -- --bundles dmg
-
-      - name: Build Tauri app
-        if: matrix.platform == 'ubuntu-22.04'
-        run: npm run tauri build -- --bundles appimage
-
-      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.platform }}
-          path: |
-            src-tauri/target/release/bundle/**/*.msi
-            src-tauri/target/release/bundle/**/*.dmg
-            src-tauri/target/release/bundle/**/*.AppImage
+          name: windows-msi
+          path: src-tauri/target/release/bundle/msi/*.msi
           retention-days: 5
 
-  create-source-tarball:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Create source tarball
-        run: |
-          git archive --format=tar.gz -o upload-iasd-source.tar.gz HEAD
-      - name: Upload source artifact
+      - name: Upload macOS artifact
+        if: matrix.platform == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: source
-          path: upload-iasd-source.tar.gz
+          name: macos-dmg
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          retention-days: 5
+
+      - name: Upload Linux artifact
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: src-tauri/target/release/bundle/appimage/*.AppImage
           retention-days: 5
