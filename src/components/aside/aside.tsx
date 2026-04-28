@@ -107,7 +107,7 @@ export default function Aside() {
           <h1 className="text-xl font-extrabold tracking-wide text-blue-200">
             UPLOAD IASD
           </h1>
-          <p className="text-xs text-blue-300 mt-1">v2.2.0</p>
+          <p className="text-xs text-blue-300 mt-1">v2.2.1</p>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4">
@@ -323,21 +323,21 @@ export default function Aside() {
           </button>
         </div>
 
-        <div 
-          className="absolute bottom-0 w-full border-t border-white/10 p-4"
-          style={{ backgroundColor: settings.primaryColor }}
-        >
+        <div className="absolute bottom-0 w-full border-t border-white/10 p-4" style={{ backgroundColor: settings.primaryColor }}>
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 overflow-hidden rounded-full ring-2 ring-blue-300 flex-shrink-0">
-              {!loading && (
+            <div className="h-10 w-10 rounded-full overflow-hidden ring-2 ring-blue-300 flex-shrink-0 bg-gray-200 flex items-center justify-center">
+              {!loading ? (
                 <img
                   src={settings.logoPath}
                   alt="Logo"
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = "/logo.svg";
+                    (e.target as HTMLImageElement).style.display = "none";
+                    e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-primary text-white text-xs font-bold">IASD</div>';
                   }}
                 />
+              ) : (
+                <div className="w-full h-full animate-pulse bg-gray-300" />
               )}
             </div>
 
@@ -345,7 +345,7 @@ export default function Aside() {
               <h5 className="text-sm font-semibold truncate">
                 {loading ? "Carregando..." : settings.churchName}
               </h5>
-              <p className="text-xs text-blue-200">Upload IASD v2.2.0</p>
+              <p className="text-xs text-blue-200">Upload IASD v2.2.1</p>
             </div>
           </div>
         </div>

@@ -2,7 +2,6 @@ import { FiInfo, FiGithub, FiRefreshCw, FiCheckCircle } from "react-icons/fi";
 import { FaWhatsapp, FaGithub } from "react-icons/fa";
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 
 interface UpdateInfo {
@@ -15,7 +14,7 @@ interface UpdateInfo {
 }
 
 export default function AboutPage() {
-  const [currentVersion, setCurrentVersion] = useState<string>("2.2.0");
+  const [currentVersion, setCurrentVersion] = useState<string>("2.2.1");
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isChecking, setIsChecking] = useState(false);
 
@@ -35,19 +34,10 @@ export default function AboutPage() {
   }, []);
   const handleOpenLink = async (url: string) => {
     try {
-      // Verificar se está no Tauri
-      if (typeof window !== "undefined" && "__TAURI__" in window) {
-        await openUrl(url);
-      } else {
-        // Fallback para navegador
-        window.open(url, "_blank", "noopener,noreferrer");
-      }
+      await invoke("open_link", { url });
     } catch (error) {
       console.error("Erro ao abrir link:", error);
-      // Fallback final
-      if (typeof window !== "undefined") {
-        window.open(url, "_blank", "noopener,noreferrer");
-      }
+      window.open(url, "_blank", "noopener,noreferrer");
     }
   };
 

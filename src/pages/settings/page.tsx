@@ -101,14 +101,24 @@ export default function SettingsPage() {
     }
 
     const pastaUploadsMudou = formData.uploadsPath !== settings.uploadsPath;
+    const pastaVideosMudou = formData.videosPath !== settings.videosPath;
 
-    // Salvar caminho de uploads diretamente via comando Tauri (alternativa confiável)
+    // Salvar caminhos via comando Tauri (confiável)
     if (formData.uploadsPath) {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("set_uploads_path", { path: formData.uploadsPath });
       } catch (error) {
-        console.error("Erro ao salvar caminho via comando Tauri:", error);
+        console.error("Erro ao salvar caminho de uploads:", error);
+      }
+    }
+
+    if (formData.videosPath) {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("set_videos_path", { path: formData.videosPath });
+      } catch (error) {
+        console.error("Erro ao salvar caminho de vídeos:", error);
       }
     }
 
@@ -126,10 +136,12 @@ export default function SettingsPage() {
           duration: 6000,
         });
       }
-      // Recarregar a página para aplicar mudanças
+      if (pastaVideosMudou && formData.videosPath) {
+        toast.success("Pasta de vídeos alterada! Os próximos downloads usarão a nova pasta.");
+      }
       setTimeout(() => {
         window.location.reload();
-      }, 1000);
+      }, 1500);
     }
   };
 

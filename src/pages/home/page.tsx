@@ -63,7 +63,7 @@ export default function Home() {
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <div className="relative">
-            <div className="h-32 w-32 rounded-full overflow-hidden ring-4 ring-primary/20 shadow-2xl">
+            <div className="h-32 w-32 rounded-full overflow-hidden ring-4 ring-primary/20 shadow-2xl bg-gray-100">
               {!loading && (
                 <img
                   src={settings.logoPath}
@@ -75,8 +75,8 @@ export default function Home() {
                 />
               )}
             </div>
-            <div className="absolute -bottom-2 -right-2 bg-primary rounded-full p-3 shadow-lg">
-              <FiUploadCloud className="text-white" size={24} />
+            <div className="absolute -bottom-2 -right-2 bg-primary rounded-full p-2 shadow-lg">
+              <FiUploadCloud className="text-white" size={20} />
             </div>
           </div>
         </div>
@@ -87,7 +87,7 @@ export default function Home() {
             UPLOAD IASD
           </h1>
           <p className="text-xl text-gray-400 font-medium">
-            Versão 2.2.0
+            Versão 2.2.1
           </p>
         </div>
 

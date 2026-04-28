@@ -11,6 +11,7 @@ mod log;
 mod upload_server;
 
 use crate::log::{log_error, log_info, log_message, log_warn};
+use tauri_plugin_opener::OpenerExt;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -120,6 +121,41 @@ fn set_uploads_path(path: String) -> Result<String, String> {
     Ok(format!("Caminho salvo com sucesso: {}", path))
 }
 
+// Comando para salvar caminho de vídeos diretamente (alternativa ao Tauri Store)
+#[tauri::command]
+fn set_videos_path(path: String) -> Result<String, String> {
+    let config_path = get_config_file_path();
+
+    // Criar diretório se não existir
+    if let Some(parent) = config_path.parent() {
+        if let Err(e) = fs::create_dir_all(parent) {
+            return Err(format!("Erro ao criar diretório de configuração: {}", e));
+        }
+    }
+
+    // Ler configuração existente ou criar nova
+    let mut config: Value = if config_path.exists() {
+        if let Ok(content) = fs::read_to_string(&config_path) {
+            serde_json::from_str(&content).unwrap_or_else(|_| json!({}))
+        } else {
+            json!({})
+        }
+    } else {
+        json!({})
+    };
+
+    // Atualizar caminho de vídeos
+    config["videosPath"] = json!(path);
+
+    // Salvar arquivo
+    let json_str = serde_json::to_string_pretty(&config)
+        .map_err(|e| format!("Erro ao serializar configuração: {}", e))?;
+
+    fs::write(&config_path, json_str).map_err(|e| format!("Erro ao salvar configuração: {}", e))?;
+
+    Ok(format!("Caminho de vídeos salvo com sucesso: {}", path))
+}
+
 // Obter caminho de uploads das configurações ou usar padrão
 fn get_uploads_path() -> Result<PathBuf, String> {
     let app_data_dir =
@@ -194,8 +230,33 @@ fn get_videos_path() -> Result<PathBuf, String> {
     let app_data_dir =
         dirs::data_local_dir().ok_or("Não foi possível encontrar diretório de dados")?;
 
-    // Tentar ler configurações do store
+    // PRIMEIRO: Tentar arquivo de configuração alternativo (mais confiável)
+    let config_path = get_config_file_path();
+    if config_path.exists() {
+        if let Ok(content) = fs::read_to_string(&config_path) {
+            if let Ok(json) = serde_json::from_str::<Value>(&content) {
+                if let Some(videos_path) = json.get("videosPath").and_then(|v| v.as_str()) {
+                    if !videos_path.is_empty() {
+                        let path = PathBuf::from(videos_path);
+                        if !path.exists() {
+                            let _ = fs::create_dir_all(&path);
+                        }
+                        return Ok(path);
+                    }
+                }
+            }
+        }
+    }
+
+    // SEGUNDO: Tentar Tauri Store v2
+    let identifier = "com.gabrielkramer.uploadiasddesktop";
+    let store_path = app_data_dir
+        .join(identifier)
+        .join("store")
+        .join("settings.json");
+
     let possible_paths = vec![
+        store_path.clone(),
         app_data_dir
             .join("com.tauri.app")
             .join("store")
@@ -203,18 +264,18 @@ fn get_videos_path() -> Result<PathBuf, String> {
         app_data_dir.join("uploadiasddesktop").join("settings.json"),
     ];
 
-    for store_path in possible_paths {
+    for store_path in &possible_paths {
         if store_path.exists() {
-            if let Ok(content) = fs::read_to_string(&store_path) {
+            if let Ok(content) = fs::read_to_string(store_path) {
                 if let Ok(json) = serde_json::from_str::<Value>(&content) {
-                    let settings = json.get("settings").or_else(|| Some(&json));
-                    if let Some(settings_obj) = settings {
+                    let settings_obj = json.get("settings").or_else(|| Some(&json));
+
+                    if let Some(settings_obj) = settings_obj {
                         if let Some(videos_path) =
                             settings_obj.get("videosPath").and_then(|v| v.as_str())
                         {
                             if !videos_path.is_empty() {
                                 let path = PathBuf::from(videos_path);
-                                // Criar pasta se não existir
                                 if !path.exists() {
                                     let _ = fs::create_dir_all(&path);
                                 }
@@ -1717,6 +1778,12 @@ fn get_upload_server_url() -> Result<String, String> {
     }
 }
 
+// Comando para abrir URL no navegador padrão
+#[tauri::command]
+fn open_link(url: String, app: tauri::AppHandle) -> Result<(), String> {
+    app.opener().open_url(&url, None::<&str>).map_err(|e| format!("Erro ao abrir URL: {}", e))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1724,8 +1791,6 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|_app| {
-            // O ícone da janela é configurado automaticamente via tauri.conf.json
-            // O icon.ico gerado do SVG (nítido) será usado automaticamente
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1741,12 +1806,14 @@ pub fn run() {
             get_upload_server_url,
             get_store_path,
             set_uploads_path,
+            set_videos_path,
             check_for_updates,
             get_app_version,
             get_activity_history,
             get_statistics,
             get_system_logs,
-            log_event
+            log_event,
+            open_link
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
