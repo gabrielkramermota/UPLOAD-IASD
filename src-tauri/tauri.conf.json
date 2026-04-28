@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Upload-IASD-Desktop",
+  "productName": "Upload IASD",
   "version": "2.2.1",
   "identifier": "com.gabrielkramer.uploadiasddesktop",
   "build": {
@@ -23,7 +23,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["msi", "dmg", "appimage"],
     "icon": [
       "icons/icon.png",
       "icons/32x32.png",
@@ -35,11 +35,30 @@
     "resources": [
       "whatsapp-bot.cjs"
     ],
+    "category": "Utility",
+    "shortDescription": "Sistema de upload para IASD",
+    "longDescription": "Ferramenta para sonoplastas e técnicos de som receberem arquivos via upload, WhatsApp ou YouTube.",
     "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
       "wix": {
         "bannerPath": "icons/icon.png",
-        "dialogImagePath": "icons/icon.png"
+        "dialogImagePath": "icons/icon.png",
+        "language": "pt-BR"
       }
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      },
+      "deb": {
+        "depends": []
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": null
     }
   }
 }

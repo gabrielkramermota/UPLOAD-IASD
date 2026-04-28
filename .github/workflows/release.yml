@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    needs: create-release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Build
+        run: npm run tauri build -- --bundles msi
+
+      - name: Upload Release Asset
+        uses: softprops/upload-gh-release@v2
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          glob: src-tauri/target/release/bundle/msi/*.msi
+
+  build-macos:
+    needs: create-release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Build
+        run: npm run tauri build -- --bundles dmg
+
+      - name: Upload Release Asset
+        uses: softprops/upload-gh-release@v2
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          glob: src-tauri/target/release/bundle/dmg/*.dmg
+
+  build-linux:
+    needs: create-release
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Build
+        run: npm run tauri build -- --bundles appimage
+
+      - name: Upload Release Asset
+        uses: softprops/upload-gh-release@v2
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          glob: src-tauri/target/release/bundle/appimage/*.AppImage
+
+  create-source-tarball:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create source tarball
+        run: |
+          git archive --format=tar.gz -o upload-iasd-source.tar.gz HEAD
+      
+      - name: Upload Release Asset
+        uses: softprops/upload-gh-release@v2
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          glob: upload-iasd-source.tar.gz

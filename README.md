@@ -4,12 +4,11 @@
 
 ![Upload IASD Logo](./public/logo.svg)
 
-**Versão 2.2.0**
+**Versão 2.2.1**
 
 Um aplicativo desktop desenvolvido para facilitar o upload e download de arquivos, especialmente voltado para sonoplastas e técnicos de som de igrejas.
 
-[![Windows](https://img.shields.io/badge/Windows-10+-0078D6?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
-[![Version](https://img.shields.io/badge/Version-2.2.0-green.svg)](https://github.com/gabrielkramermota/UPLOAD-IASD/releases)
+[![Version](https://img.shields.io/badge/Version-2.2.1-green.svg)](https://github.com/gabrielkramermota/UPLOAD-IASD/releases)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 [📥 Download](#-instalação) • [📖 Documentação](#-funcionalidades) • [🐛 Suporte](#-problemas-e-suporte)
@@ -29,6 +28,21 @@ Um aplicativo desktop desenvolvido para facilitar o upload e download de arquivo
 
 ---
 
+## ✨ Plataformas Suportadas
+
+| Sistema Operacional | Arquitetura | Download |
+|--------------------|-------------|----------|
+| **Windows 10+** | x64 | [.msi](https://github.com/gabrielkramermota/UPLOAD-IASD/releases) |
+| **macOS 10.15+** | x64, Apple Silicon | [.dmg](https://github.com/gabrielkramermota/UPLOAD-IASD/releases) |
+| **Linux** | x64 | [.AppImage](https://github.com/gabrielkramermota/UPLOAD-IASD/releases) |
+
+###Notas da Release
+- Baixe o instalador correto para seu sistema operacional
+- Os instaladores são gerados automaticamente via GitHub Actions
+- Para código-fonte, baixe o arquivo `upload-iosd-source.tar.gz`
+
+---
+
 ## ✨ Funcionalidades
 
 ### 📊 Dashboard
@@ -44,7 +58,7 @@ Receba arquivos via WhatsApp automaticamente. Conecte facilmente escaneando o QR
 Servidor HTTP local para receber uploads via navegador. Suporte para arquivos grandes (até 10GB), PDFs e todos os tipos de documentos. Acesse de qualquer dispositivo na mesma rede.
 
 ### 📋 Histórico de Atividades
-Visualize todo o histórico de arquivos recebidos e baixados. Filtre por tipo (Upload, YouTube, WhatsApp), veja detalhes de cada arquivo e acesse rapidamente suas pastas.
+Visualize todo o histórico de arquivos recebidos e baixados. Filtre por tipo (Upload, YouTube, WhatsApp), veja detalhes de cada arquivo e acesso rapidamente suas pastas.
 
 ### 📝 Logs do Sistema
 Acesse logs completos do sistema para monitoramento e diagnóstico. Visualize atividades em tempo real com interface clara, copie logs para análise e monitore o funcionamento do aplicativo.
@@ -90,39 +104,42 @@ Informações sobre o sistema, versão e desenvolvedor.
 
 ### Requisitos do Sistema
 
-- **Windows 10 ou superior**
+- **Windows**: Windows 10 ou superior (x64)
+- **macOS**: macOS 10.15 ou superior (x64 ou Apple Silicon)
+- **Linux**: Ubuntu 18.04 ou superior (x64)
 - **Node.js 18+** (necessário apenas para o bot WhatsApp)
-  - Download: https://nodejs.org/
-  - ⚠️ O app funciona sem Node.js, mas o bot WhatsApp não estará disponível
 
-### Opções de Instalação
+### Windows - Instalador MSI
 
-#### 🎯 Opção 1 - Instalador MSI (Recomendado)
-
-1. Baixe o arquivo `Upload-IASD-Desktop_2.2.0_x64_en-US.msi` da [página de releases](https://github.com/gabrielkramermota/UPLOAD-IASD/releases)
+1. Baixe o arquivo `.msi` da [página de releases](https://github.com/gabrielkramermota/UPLOAD-IASD/releases)
 2. Execute o arquivo baixado
 3. Siga o assistente de instalação
-4. O app aparecerá no menu Iniciar do Windows com atalhos criados automaticamente
+4. O app aparecerá no menu Iniciar do Windows
 
-#### 📦 Opção 2 - Instalador NSIS
+### macOS - DMG
 
-1. Baixe o arquivo `Upload-IASD-Desktop_2.2.0_x64-setup.exe` da [página de releases](https://github.com/gabrielkramermota/UPLOAD-IASD/releases)
-2. Execute o arquivo e siga o assistente de instalação
+1. Baixe o arquivo `.dmg` da [página de releases](https://github.com/gabrielkramermota/UPLOAD-IASD/releases)
+2. Abra o arquivo `.dmg`
+3. Arraste o aplicativo para a pasta Applications
+4. Abra o app no Launchpad
 
-#### 💾 Opção 3 - Executável Portátil
+### Linux - AppImage
 
-1. Baixe o arquivo `uploadiasddesktop.exe` da [página de releases](https://github.com/gabrielkramermota/UPLOAD-IASD/releases)
-2. Execute diretamente (não requer instalação)
-3. Pode ser executado de qualquer pasta
+1. Baixe o arquivo `.AppImage` da [página de releases](https://github.com/gabrielkramermota/UPLOAD-IASD/releases)
+2. Torne executável:
+   ```bash
+   chmod +x UploadIASD_*.AppImage
+   ```
+3. Execute:
+   ```bash
+   ./UploadIASD_*.AppImage
+   ```
 
-### ⚠️ Aviso do Windows Defender
+### ⚠️ Aviso de Segurança (Windows/macOS)
 
-Na primeira execução, o Windows pode exibir um aviso de segurança:
-> "Windows protegeu seu PC"
-
-**Isso é normal** para aplicativos não assinados digitalmente. Para executar:
-1. Clique em "Mais informações"
-2. Clique em "Executar mesmo assim"
+Na primeira execução, o sistema pode exibir um aviso de segurança. Isso é normal para aplicativos não assinados digitalmente. Para executar:
+- **Windows**: Clique em "Mais informações" → "Executar mesmo assim"
+- **macOS**: Clique com botão direito → "Abrir" → "Abrir mesmo assim"
 
 ---
 
@@ -243,7 +260,7 @@ Na primeira execução, o Windows pode exibir um aviso de segurança:
 ```bash
 # Clone o repositório
 git clone https://github.com/gabrielkramermota/UPLOAD-IASD.git
-cd upload.iasd.desktop
+cd UPLOAD-IASD
 
 # Instale as dependências
 npm install
@@ -263,9 +280,7 @@ npm run tauri build
 ```
 
 Os arquivos gerados estarão em:
-- **Executável**: `src-tauri/target/release/uploadiasddesktop.exe`
-- **Instalador MSI**: `src-tauri/target/release/bundle/msi/Upload-IASD-Desktop_2.2.0_x64_en-US.msi`
-- **Instalador NSIS**: `src-tauri/target/release/bundle/nsis/Upload-IASD-Desktop_2.2.0_x64-setup.exe`
+- **Executável**: `src-tauri/target/release/uploadiasddesktop`
 
 ---
 
@@ -327,7 +342,7 @@ Desenvolvido com ❤️ para a comunidade
 
 <div align="center">
 
-**Versão 2.2.0** • **Última atualização:** Janeiro 2026
+**Versão 2.2.1** • **Última atualização:** Abril 2026
 
 [⬆️ Voltar ao topo](#-upload-iasd-desktop)
 
