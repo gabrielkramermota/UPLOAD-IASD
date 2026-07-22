@@ -86,7 +86,7 @@ jobs:
 
       - name: Upload Windows artifact
         if: matrix.platform == 'windows-latest'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-msi
           path: src-tauri/target/release/bundle/msi/*.msi
@@ -94,7 +94,7 @@ jobs:
 
       - name: Upload macOS artifact
         if: matrix.platform == 'macos-latest'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-dmg
           path: src-tauri/target/release/bundle/dmg/*.dmg
@@ -102,7 +102,7 @@ jobs:
 
       - name: Upload Linux artifact
         if: matrix.platform == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-appimage
           path: src-tauri/target/release/bundle/appimage/*.AppImage
