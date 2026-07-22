@@ -1,6 +1,6 @@
 [package]
 name = "uploadiasddesktop"
-version = "2.2.1"
+version = "2.3.0"
 description = "Upload IASD Desktop - Sistema de Upload e Download para Igrejas Adventistas"
 authors = ["Gabriel Kramer Mota <kramermota55@gmail.com>"]
 edition = "2021"
@@ -38,4 +38,3 @@ tower = "0.4"
 tower-http = { version = "0.5", features = ["fs", "cors"] }
 futures = "0.3"
 local-ip-address = "0.5"
-
