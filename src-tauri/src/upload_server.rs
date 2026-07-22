@@ -1,3 +1,4 @@
+use crate::history::record_activity;
 use crate::log::{log_error, log_info};
 use axum::{
     extract::{DefaultBodyLimit, Extension, Multipart},
@@ -6,17 +7,15 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use chrono::Local;
-use dirs;
 use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::io::AsyncWriteExt;
 use tower_http::cors::CorsLayer;
-use uuid::Uuid;
 
 // Função auxiliar para formatar tamanho
-fn format_size(bytes: usize) -> String {
+fn format_size(bytes: u64) -> String {
     if bytes == 0 {
         return "0 Bytes".to_string();
     }
@@ -35,58 +34,189 @@ struct AppState {
     upload_dir: PathBuf,
 }
 
-// Função auxiliar para registrar atividade no histórico
-fn record_activity(activity_type: &str, file_path: &str, file_size: u64, metadata: Option<&str>) {
-    if let Some(app_data_dir) = dirs::data_local_dir() {
-        let history_path = app_data_dir.join("UploadIASD").join("history.json");
+fn sanitize_uploaded_filename(filename: &str) -> String {
+    let normalized = filename.replace('\\', "/");
+    let basename = normalized.rsplit('/').next().unwrap_or("arquivo");
+    let mut sanitized = basename
+        .chars()
+        .map(|c| match c {
+            '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => '_',
+            c if c.is_control() => '_',
+            _ => c,
+        })
+        .collect::<String>()
+        .trim_matches(['.', ' '])
+        .chars()
+        .take(180)
+        .collect::<String>();
 
-        // Criar diretório se não existir
-        if let Some(parent) = history_path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
+    if sanitized.is_empty() || sanitized == "." || sanitized == ".." {
+        sanitized = "arquivo".to_string();
+    }
 
-        // Ler histórico existente
-        let mut history: Vec<serde_json::Value> = if history_path.exists() {
-            if let Ok(content) = fs::read_to_string(&history_path) {
-                serde_json::from_str(&content).unwrap_or_else(|_| vec![])
-            } else {
-                vec![]
-            }
+    let stem = PathBuf::from(&sanitized)
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if matches!(
+        stem.as_str(),
+        "con"
+            | "prn"
+            | "aux"
+            | "nul"
+            | "com1"
+            | "com2"
+            | "com3"
+            | "com4"
+            | "com5"
+            | "com6"
+            | "com7"
+            | "com8"
+            | "com9"
+            | "lpt1"
+            | "lpt2"
+            | "lpt3"
+            | "lpt4"
+            | "lpt5"
+            | "lpt6"
+            | "lpt7"
+            | "lpt8"
+            | "lpt9"
+    ) {
+        sanitized.insert(0, '_');
+    }
+    sanitized
+}
+
+fn reserve_upload_path(
+    upload_dir: &std::path::Path,
+    filename: &str,
+) -> Result<(PathBuf, PathBuf), String> {
+    let original = PathBuf::from(filename);
+    let stem = original
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("arquivo");
+    let extension = original.extension().and_then(|value| value.to_str());
+    let mut counter = 0;
+
+    loop {
+        let candidate_name = if counter == 0 {
+            filename.to_string()
         } else {
-            vec![]
+            match extension {
+                Some(ext) if !ext.is_empty() => format!("{} ({}).{}", stem, counter, ext),
+                _ => format!("{} ({})", stem, counter),
+            }
         };
+        let file_path = upload_dir.join(&candidate_name);
+        let reservation_path = upload_dir.join(format!(".{}.upload-reservation", candidate_name));
+        counter += 1;
 
-        // Criar entrada de atividade
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        let activity = json!({
-            "id": format!("{}-{}", timestamp, Uuid::new_v4().to_string().chars().take(8).collect::<String>()),
-            "type": activity_type,
-            "file_path": file_path,
-            "file_name": PathBuf::from(file_path).file_name()
-                .and_then(|n| n.to_str())
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| "arquivo".to_string()),
-            "file_size": file_size,
-            "metadata": metadata.unwrap_or(""),
-            "timestamp": timestamp,
-            "date": Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
-        });
-
-        // Adicionar no início (mais recente primeiro)
-        history.insert(0, activity);
-
-        // Manter apenas últimos 1000 registros
-        if history.len() > 1000 {
-            history.truncate(1000);
+        if file_path.exists() {
+            continue;
         }
+        match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&reservation_path)
+        {
+            Ok(_) if !file_path.exists() => return Ok((file_path, reservation_path)),
+            Ok(_) => {
+                let _ = fs::remove_file(&reservation_path);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => {
+                return Err(format!(
+                    "Erro ao reservar o nome do arquivo {}: {}",
+                    candidate_name, error
+                ));
+            }
+        }
+    }
+}
 
-        // Salvar histórico
-        if let Ok(json_str) = serde_json::to_string_pretty(&history) {
-            let _ = fs::write(&history_path, json_str);
+async fn stream_field_to_disk(
+    mut field: axum::extract::multipart::Field<'_>,
+    upload_dir: &std::path::Path,
+    filename: &str,
+) -> Result<(PathBuf, u64, String), String> {
+    let sanitized_filename = sanitize_uploaded_filename(filename);
+    let (file_path, reservation_path) = reserve_upload_path(upload_dir, &sanitized_filename)?;
+    let temp_path = upload_dir.join(format!(".{}.uploading", uuid::Uuid::new_v4().simple()));
+    let mut output = match tokio::fs::File::create(&temp_path).await {
+        Ok(file) => file,
+        Err(error) => {
+            let _ = fs::remove_file(&reservation_path);
+            return Err(format!("Erro ao criar arquivo temporário: {}", error));
+        }
+    };
+    let mut total_size = 0_u64;
+
+    let write_result: Result<(), String> = async {
+        loop {
+            let next_chunk =
+                tokio::time::timeout(std::time::Duration::from_secs(300), field.chunk())
+                    .await
+                    .map_err(|_| format!("Timeout ao receber {}", filename))?
+                    .map_err(|e| format!("Erro ao receber {}: {}", filename, e))?;
+
+            let Some(chunk) = next_chunk else {
+                break;
+            };
+            total_size = total_size
+                .checked_add(chunk.len() as u64)
+                .ok_or_else(|| "Tamanho do arquivo excedeu o limite suportado".to_string())?;
+            output
+                .write_all(&chunk)
+                .await
+                .map_err(|e| format!("Erro ao gravar {}: {}", filename, e))?;
+        }
+        output
+            .flush()
+            .await
+            .map_err(|e| format!("Erro ao finalizar {}: {}", filename, e))?;
+        output
+            .sync_all()
+            .await
+            .map_err(|e| format!("Erro ao sincronizar {}: {}", filename, e))?;
+        Ok(())
+    }
+    .await;
+
+    drop(output);
+    if let Err(err) = write_result {
+        let _ = tokio::fs::remove_file(&temp_path).await;
+        let _ = tokio::fs::remove_file(&reservation_path).await;
+        return Err(err);
+    }
+
+    if let Err(err) = tokio::fs::rename(&temp_path, &file_path).await {
+        let _ = tokio::fs::remove_file(&temp_path).await;
+        let _ = tokio::fs::remove_file(&reservation_path).await;
+        return Err(format!("Erro ao concluir {}: {}", filename, err));
+    }
+    let _ = tokio::fs::remove_file(&reservation_path).await;
+
+    Ok((file_path, total_size, sanitized_filename))
+}
+
+fn cleanup_incomplete_uploads(upload_dir: &std::path::Path) {
+    let Ok(entries) = fs::read_dir(upload_dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let is_incomplete = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| {
+                name.starts_with('.')
+                    && (name.ends_with(".uploading") || name.ends_with(".upload-reservation"))
+            });
+        if is_incomplete {
+            let _ = fs::remove_file(path);
         }
     }
 }
@@ -442,95 +572,30 @@ async fn upload_files(
                         field.content_type()
                     ));
 
-                    // Ler dados com timeout (aumentado para arquivos grandes como PDFs)
-                    let data_result = tokio::time::timeout(
-                        std::time::Duration::from_secs(1800), // 30 minutos para ler o arquivo (PDFs podem ser grandes)
-                        field.bytes(),
-                    )
-                    .await;
-
-                    let data = match data_result {
-                        Ok(Ok(bytes)) => {
-                            log_info(&format!(
-                                "Arquivo {} lido com sucesso, tamanho: {} bytes",
-                                filename,
-                                bytes.len()
-                            ));
-                            bytes
-                        }
-                        Ok(Err(e)) => {
-                            let err_msg =
-                                format!("Erro ao ler dados do arquivo {}: {}", filename, e);
-                            errors.push(err_msg.clone());
-                            log_error(&format!("ERRO: {}", err_msg));
-                            continue;
-                        }
-                        Err(_) => {
-                            let err_msg = format!(
-                                "Timeout ao ler arquivo {} (arquivo muito grande ou conexão lenta)",
-                                filename
-                            );
-                            errors.push(err_msg.clone());
-                            log_error(&format!("ERRO: {}", err_msg));
-                            continue;
-                        }
-                    };
-
-                    // Sanitizar nome do arquivo (remover caracteres perigosos)
-                    let sanitized_filename = filename
-                        .chars()
-                        .map(|c| match c {
-                            '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => '_',
-                            _ => c,
-                        })
-                        .collect::<String>();
-
-                    // Gerar nome único se arquivo já existir
-                    let mut file_path = state.upload_dir.join(&sanitized_filename);
-                    let mut counter = 1;
-
-                    // Se arquivo já existe, adicionar número antes da extensão
-                    while file_path.exists() {
-                        let stem = file_path
-                            .file_stem()
-                            .and_then(|s| s.to_str())
-                            .unwrap_or("file");
-                        let extension =
-                            file_path.extension().and_then(|s| s.to_str()).unwrap_or("");
-
-                        let new_filename = if extension.is_empty() {
-                            format!("{} ({})", stem, counter)
-                        } else {
-                            format!("{} ({}).{}", stem, counter, extension)
-                        };
-
-                        file_path = state.upload_dir.join(&new_filename);
-                        counter += 1;
-                    }
-
-                    match fs::write(&file_path, &data) {
-                        Ok(_) => {
+                    match stream_field_to_disk(field, &state.upload_dir, &filename).await {
+                        Ok((file_path, file_size, sanitized_filename)) => {
                             uploaded_count += 1;
-                            let file_size = data.len() as u64;
-
-                            // Registrar no log
                             log_info(&format!(
                                 "Arquivo enviado com sucesso: {} -> {} ({})",
                                 filename,
                                 sanitized_filename,
-                                format_size(data.len())
+                                format_size(file_size)
                             ));
 
-                            // Registrar atividade no histórico
-                            record_activity(
+                            if let Err(err) = record_activity(
                                 "upload",
                                 &file_path.to_string_lossy(),
                                 file_size,
                                 Some(&sanitized_filename),
-                            );
+                            ) {
+                                log_error(&format!(
+                                    "Arquivo salvo, mas o histórico falhou: {}",
+                                    err
+                                ));
+                            }
                         }
-                        Err(e) => {
-                            let err_msg = format!("Erro ao salvar arquivo {}: {}", filename, e);
+                        Err(err) => {
+                            let err_msg = format!("Erro ao salvar arquivo {}: {}", filename, err);
                             errors.push(err_msg.clone());
                             log_error(&format!("ERRO ao salvar arquivo: {}", err_msg));
                         }
@@ -623,12 +688,14 @@ async fn upload_links(
             ));
 
             // Registrar atividade no histórico
-            record_activity(
+            if let Err(err) = record_activity(
                 "upload",
                 &file_path.to_string_lossy(),
                 content.len() as u64,
                 Some("links"),
-            );
+            ) {
+                log_error(&format!("Links salvos, mas o histórico falhou: {}", err));
+            }
 
             Ok(Json(json!({
                 "message": format!("{} link(s) salvos com sucesso!", links.len()),
@@ -646,11 +713,18 @@ async fn upload_links(
     }
 }
 
-pub async fn start_upload_server(port: u16, upload_dir: PathBuf) -> Result<(), String> {
+pub async fn start_upload_server(
+    listener: tokio::net::TcpListener,
+    upload_dir: PathBuf,
+) -> Result<(), String> {
     fs::create_dir_all(&upload_dir)
         .map_err(|e| format!("Erro ao criar diretório de uploads: {}", e))?;
+    cleanup_incomplete_uploads(&upload_dir);
 
-    // Registrar início do servidor
+    let port = listener
+        .local_addr()
+        .map_err(|e| format!("Erro ao consultar endereço do servidor: {}", e))?
+        .port();
     log_info(&format!("Servidor de upload iniciado na porta {}", port));
 
     let state = Arc::new(AppState {
@@ -667,13 +741,7 @@ pub async fn start_upload_server(port: u16, upload_dir: PathBuf) -> Result<(), S
         .layer(DefaultBodyLimit::max(10 * 1024 * 1024 * 1024))
         .layer(Extension(state));
 
-    let addr = format!("0.0.0.0:{}", port);
-
-    let listener = tokio::net::TcpListener::bind(&addr)
-        .await
-        .map_err(|e| format!("Erro ao iniciar servidor: {}", e))?;
-
-    println!("Servidor de upload iniciado em http://{}", addr);
+    println!("Servidor de upload iniciado em http://0.0.0.0:{}", port);
 
     axum::serve(listener, app)
         .await

@@ -1,5 +1,4 @@
 use chrono::Local;
-use dirs;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -60,4 +59,17 @@ pub fn log_warn(message: &str) {
 
 pub fn log_error(message: &str) {
     log_message("ERROR", message);
+}
+
+pub fn clear_logs() -> Result<(), String> {
+    let logs_dir = logs_dir_path().ok_or("Não foi possível encontrar o diretório de logs")?;
+    fs::create_dir_all(&logs_dir).map_err(|e| format!("Erro ao criar diretório de logs: {}", e))?;
+
+    for path in [system_log_file_path(), issues_log_file_path()]
+        .into_iter()
+        .flatten()
+    {
+        fs::write(&path, "").map_err(|e| format!("Erro ao limpar {}: {}", path.display(), e))?;
+    }
+    Ok(())
 }

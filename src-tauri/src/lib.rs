@@ -7,10 +7,13 @@ use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 
+mod history;
 mod log;
 mod upload_server;
 
-use crate::log::{log_error, log_info, log_message, log_warn};
+use crate::history::{read_history, record_activity};
+use crate::log::{clear_logs, log_error, log_info, log_message, log_warn};
+use tauri::Manager;
 use tauri_plugin_opener::OpenerExt;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -199,7 +202,7 @@ fn get_uploads_path() -> Result<PathBuf, String> {
         if store_path.exists() {
             if let Ok(content) = fs::read_to_string(store_path) {
                 if let Ok(json) = serde_json::from_str::<Value>(&content) {
-                    let settings_obj = json.get("settings").or_else(|| Some(&json));
+                    let settings_obj = json.get("settings").or(Some(&json));
 
                     if let Some(settings_obj) = settings_obj {
                         if let Some(uploads_path) =
@@ -268,7 +271,7 @@ fn get_videos_path() -> Result<PathBuf, String> {
         if store_path.exists() {
             if let Ok(content) = fs::read_to_string(store_path) {
                 if let Ok(json) = serde_json::from_str::<Value>(&content) {
-                    let settings_obj = json.get("settings").or_else(|| Some(&json));
+                    let settings_obj = json.get("settings").or(Some(&json));
 
                     if let Some(settings_obj) = settings_obj {
                         if let Some(videos_path) =
@@ -467,7 +470,7 @@ fn get_video_info(url: String) -> Result<String, String> {
 
     // Obter metadados do vídeo
     let mut info_cmd = Command::new(&yt_dlp_path);
-    info_cmd.args(&[
+    info_cmd.args([
         "--dump-single-json",
         "--no-warnings",
         "--prefer-free-formats",
@@ -508,7 +511,7 @@ fn download_youtube(
 
     // Primeiro, obter metadados do vídeo para gerar nome limpo (similar ao exemplo)
     let mut info_cmd = Command::new(&yt_dlp_path);
-    info_cmd.args(&[
+    info_cmd.args([
         "--dump-single-json",
         "--no-warnings",
         "--prefer-free-formats",
@@ -576,33 +579,18 @@ fn download_youtube(
     for (attempt_num, format_args) in download_attempts.iter().enumerate() {
         let mut cmd = Command::new(&yt_dlp_path);
 
-        if format == "audio" {
-            cmd.args(format_args);
-            cmd.args(&[
-                "--no-warnings",
-                "--prefer-free-formats",
-                "--no-part",
-                "--no-mtime",
-                "--extractor-args",
-                "youtube:player_client=android",
-                "-o",
-                &temp_file.to_string_lossy(),
-                &clean_url,
-            ]);
-        } else {
-            cmd.args(format_args);
-            cmd.args(&[
-                "--no-warnings",
-                "--prefer-free-formats",
-                "--no-part",
-                "--no-mtime",
-                "--extractor-args",
-                "youtube:player_client=android",
-                "-o",
-                &temp_file.to_string_lossy(),
-                &clean_url,
-            ]);
-        }
+        cmd.args(format_args);
+        cmd.args([
+            "--no-warnings",
+            "--prefer-free-formats",
+            "--no-part",
+            "--no-mtime",
+            "--extractor-args",
+            "youtube:player_client=android",
+            "-o",
+            &temp_file.to_string_lossy(),
+            &clean_url,
+        ]);
 
         // Executar comando de download
         let output = match cmd.output() {
@@ -643,7 +631,7 @@ fn download_youtube(
             // Última tentativa com yt-dlp atualizado
             let mut cmd = Command::new(&yt_dlp_path);
             if format == "audio" {
-                cmd.args(&[
+                cmd.args([
                     "-x",
                     "--audio-format",
                     "mp3",
@@ -660,7 +648,7 @@ fn download_youtube(
                     &clean_url,
                 ]);
             } else {
-                cmd.args(&[
+                cmd.args([
                     "-f",
                     "best",
                     "--no-warnings",
@@ -734,7 +722,7 @@ fn download_youtube(
     let file_size = final_file_path
         .metadata()
         .ok()
-        .and_then(|m| Some(m.len()))
+        .map(|m| m.len())
         .unwrap_or(0);
 
     let _ = record_activity(
@@ -796,10 +784,7 @@ fn read_whatsapp_status_snapshot(status_path: &PathBuf) -> String {
             .get("status")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
-        let message = parsed
-            .get("message")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let message = parsed.get("message").and_then(|v| v.as_str()).unwrap_or("");
 
         if message.is_empty() {
             format!("status={}", status)
@@ -837,6 +822,40 @@ fn classify_whatsapp_output_level(stream_name: &str, line: &str) -> &'static str
     "INFO"
 }
 
+fn handle_whatsapp_activity(line: &str) -> bool {
+    const PREFIX: &str = "UPLOAD_IASD_ACTIVITY:";
+    let Some(payload) = line.strip_prefix(PREFIX) else {
+        return false;
+    };
+
+    let parsed: Value = match serde_json::from_str(payload) {
+        Ok(value) => value,
+        Err(err) => {
+            log_warn(&format!(
+                "Evento de atividade do WhatsApp inválido: {}",
+                err
+            ));
+            return true;
+        }
+    };
+
+    let Some(file_path) = parsed.get("filePath").and_then(Value::as_str) else {
+        log_warn("Evento do WhatsApp sem caminho de arquivo");
+        return true;
+    };
+    let file_size = parsed.get("fileSize").and_then(Value::as_u64).unwrap_or(0);
+    let metadata = parsed.get("metadata").and_then(Value::as_str);
+
+    match record_activity("whatsapp_receive", file_path, file_size, metadata) {
+        Ok(()) => log_info(&format!("Atividade do WhatsApp registrada: {}", file_path)),
+        Err(err) => log_error(&format!(
+            "Arquivo do WhatsApp salvo, mas o histórico falhou: {}",
+            err
+        )),
+    }
+    true
+}
+
 fn forward_whatsapp_output<R>(reader: R, stream_name: &'static str)
 where
     R: std::io::Read + Send + 'static,
@@ -848,6 +867,9 @@ where
                 Ok(line) => {
                     let trimmed = line.trim();
                     if trimmed.is_empty() {
+                        continue;
+                    }
+                    if stream_name == "stdout" && handle_whatsapp_activity(trimmed) {
                         continue;
                     }
 
@@ -914,17 +936,64 @@ fn cleanup_whatsapp_runtime_files(bot_dir: &PathBuf) -> Result<String, String> {
     }
 
     fs::write(&qr_code_path, "").map_err(|err| format!("Could not clear QR file: {}", err))?;
-    write_whatsapp_status_file(
-        &status_path,
-        "stopped",
-        "Bot parado e cache local limpo",
-    );
+    write_whatsapp_status_file(&status_path, "stopped", "Bot parado e cache local limpo");
 
     Ok("Bot parado e cache limpo".to_string())
 }
 
+fn resolve_whatsapp_runtime(
+    app: &tauri::AppHandle,
+) -> Result<(PathBuf, PathBuf, Option<PathBuf>), String> {
+    let mut candidates = Vec::new();
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push(resource_dir.join("whatsapp-runtime"));
+    }
+    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("whatsapp-runtime"));
+
+    for runtime_dir in candidates {
+        let manifest_path = runtime_dir.join("runtime-manifest.json");
+        if !manifest_path.exists() {
+            continue;
+        }
+        let content = fs::read_to_string(&manifest_path)
+            .map_err(|e| format!("Erro ao ler manifesto do WhatsApp: {}", e))?;
+        let manifest: Value = serde_json::from_str(&content)
+            .map_err(|e| format!("Manifesto do WhatsApp inválido: {}", e))?;
+        let relative_path = |key: &str| -> Result<PathBuf, String> {
+            let value = manifest
+                .get(key)
+                .and_then(Value::as_str)
+                .ok_or_else(|| format!("Manifesto do WhatsApp sem campo {}", key))?;
+            let path = runtime_dir.join(value);
+            if !path.exists() {
+                return Err(format!(
+                    "Componente do WhatsApp ausente: {}",
+                    path.display()
+                ));
+            }
+            Ok(path)
+        };
+
+        return Ok((
+            relative_path("node")?,
+            relative_path("script")?,
+            Some(relative_path("browser")?),
+        ));
+    }
+
+    if cfg!(debug_assertions) {
+        let node = which::which("node")
+            .or_else(|_| which::which("node.exe"))
+            .map_err(|_| "Node.js não encontrado para desenvolvimento".to_string())?;
+        let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("whatsapp-bot.cjs");
+        return Ok((node, script, None));
+    }
+
+    Err("Runtime integrado do WhatsApp não foi encontrado. Reinstale o aplicativo.".to_string())
+}
+
 #[tauri::command]
-fn start_whatsapp_bot() -> Result<String, String> {
+fn start_whatsapp_bot(app: tauri::AppHandle) -> Result<String, String> {
     log_info("Tentativa de iniciar bot WhatsApp");
 
     let result: Result<String, String> = (|| {
@@ -989,7 +1058,11 @@ fn start_whatsapp_bot() -> Result<String, String> {
 
         let cache_path = bot_dir.join(".wwebjs_cache");
 
-        write_whatsapp_status_file(&status_path, "loading", "Iniciando processo do bot WhatsApp");
+        write_whatsapp_status_file(
+            &status_path,
+            "loading",
+            "Iniciando processo do bot WhatsApp",
+        );
         if let Err(err) = fs::write(&qr_code_path, "") {
             log_warn(&format!("Could not reset QR file before startup: {}", err));
         }
@@ -1012,48 +1085,21 @@ fn start_whatsapp_bot() -> Result<String, String> {
             }
         }
 
-        let node_path = which::which("node")
-            .or_else(|_| which::which("node.exe"))
-            .map_err(|_| "Node.js nao encontrado. Instale o Node.js primeiro.")?;
-
-        let exe_dir = env::current_exe()
-            .map_err(|e| format!("Erro ao obter diretorio do executavel: {}", e))?
-            .parent()
-            .ok_or("Nao foi possivel obter diretorio pai")?
-            .to_path_buf();
-
-        let mut possible_paths = vec![
-            exe_dir.join("whatsapp-bot.cjs"),
-            exe_dir.join("resources").join("whatsapp-bot.cjs"),
-        ];
-
-        if let Some(parent) = exe_dir.parent() {
-            possible_paths.push(parent.join("whatsapp-bot.cjs"));
-            possible_paths.push(parent.join("resources").join("whatsapp-bot.cjs"));
-        }
-
-        possible_paths.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("whatsapp-bot.cjs"));
-
-        let bot_script = possible_paths.into_iter().find(|path| path.exists());
-
-        let bot_script = bot_script.ok_or_else(|| {
-            format!(
-                "Script do bot nao encontrado. Procurado em:\n- {}\n- {}\n- {}",
-                exe_dir.join("whatsapp-bot.cjs").display(),
-                exe_dir.join("resources").join("whatsapp-bot.cjs").display(),
-                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                    .join("whatsapp-bot.cjs")
-                    .display()
-            )
-        })?;
-
-        let mut child = Command::new(&node_path)
+        let (node_path, bot_script, browser_path) = resolve_whatsapp_runtime(&app)?;
+        let mut command = Command::new(&node_path);
+        command
             .arg(&bot_script)
-            .arg(&uploads_dir.to_string_lossy().to_string())
-            .arg(&qr_code_path.to_string_lossy().to_string())
-            .arg(&status_path.to_string_lossy().to_string())
-            .arg(&session_path.to_string_lossy().to_string())
-            .arg(&cache_path.to_string_lossy().to_string())
+            .arg(uploads_dir.to_string_lossy().to_string())
+            .arg(qr_code_path.to_string_lossy().to_string())
+            .arg(status_path.to_string_lossy().to_string())
+            .arg(session_path.to_string_lossy().to_string())
+            .arg(cache_path.to_string_lossy().to_string());
+        if let Some(browser) = &browser_path {
+            command
+                .arg(browser)
+                .env("PUPPETEER_EXECUTABLE_PATH", browser);
+        }
+        let mut child = command
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -1089,10 +1135,7 @@ fn start_whatsapp_bot() -> Result<String, String> {
                             .get("status")
                             .and_then(|v| v.as_str())
                             .unwrap_or("unknown");
-                        let message = parsed
-                            .get("message")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("");
+                        let message = parsed.get("message").and_then(|v| v.as_str()).unwrap_or("");
 
                         if status == "loading" || status == "unknown" || status.is_empty() {
                             log_warn(&format!(
@@ -1163,7 +1206,10 @@ fn stop_whatsapp_bot() -> Result<String, String> {
                 Ok(None) => {
                     #[cfg(windows)]
                     {
-                        log_info(&format!("Sending taskkill for pid={} and child processes", pid));
+                        log_info(&format!(
+                            "Sending taskkill for pid={} and child processes",
+                            pid
+                        ));
                         match Command::new("taskkill")
                             .args(["/F", "/T", "/PID", &pid.to_string()])
                             .output()
@@ -1179,7 +1225,10 @@ fn stop_whatsapp_bot() -> Result<String, String> {
                                 ));
                             }
                             Err(err) => {
-                                log_warn(&format!("taskkill execution failed for pid={}: {}", pid, err));
+                                log_warn(&format!(
+                                    "taskkill execution failed for pid={}: {}",
+                                    pid, err
+                                ));
                             }
                         }
                     }
@@ -1205,9 +1254,10 @@ fn stop_whatsapp_bot() -> Result<String, String> {
 
                     if completed {
                         match wait_thread.join() {
-                            Ok(Ok(status)) => {
-                                log_info(&format!("Bot process exit status after stop: {:?}", status))
-                            }
+                            Ok(Ok(status)) => log_info(&format!(
+                                "Bot process exit status after stop: {:?}",
+                                status
+                            )),
                             Ok(Err(err)) => {
                                 log_warn(&format!("Could not wait for bot process exit: {}", err))
                             }
@@ -1232,7 +1282,10 @@ fn stop_whatsapp_bot() -> Result<String, String> {
             let snapshot = read_whatsapp_status_snapshot(&bot_dir.join("bot-status.json"));
             log_warn(&format!("Status snapshot before cleanup: {}", snapshot));
             let cleanup_message = cleanup_whatsapp_runtime_files(&bot_dir)?;
-            Ok(format!("Nenhum processo ativo registrado. {}", cleanup_message))
+            Ok(format!(
+                "Nenhum processo ativo registrado. {}",
+                cleanup_message
+            ))
         }
     })();
 
@@ -1305,74 +1358,6 @@ fn get_whatsapp_status() -> Result<String, String> {
     }
 }
 // ==================== SISTEMA DE HISTÓRICO E ATIVIDADES ====================
-
-// Obter caminho do arquivo de histórico
-fn get_history_file_path() -> PathBuf {
-    let app_data_dir = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
-    app_data_dir.join("UploadIASD").join("history.json")
-}
-
-// Registrar atividade no histórico
-fn record_activity(
-    activity_type: &str,
-    file_path: &str,
-    file_size: u64,
-    metadata: Option<&str>,
-) -> Result<(), String> {
-    let history_path = get_history_file_path();
-
-    // Criar diretório se não existir
-    if let Some(parent) = history_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Erro ao criar diretório: {}", e))?;
-    }
-
-    // Ler histórico existente
-    let mut history: Vec<Value> = if history_path.exists() {
-        if let Ok(content) = fs::read_to_string(&history_path) {
-            serde_json::from_str(&content).unwrap_or_else(|_| vec![])
-        } else {
-            vec![]
-        }
-    } else {
-        vec![]
-    };
-
-    // Criar entrada de atividade
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    let activity = json!({
-        "id": format!("{}-{}", timestamp, uuid::Uuid::new_v4().to_string().chars().take(8).collect::<String>()),
-        "type": activity_type, // "upload", "youtube_download", "whatsapp_receive"
-        "file_path": file_path,
-        "file_name": PathBuf::from(file_path).file_name()
-            .and_then(|n| n.to_str())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| "arquivo".to_string()),
-        "file_size": file_size,
-        "metadata": metadata.unwrap_or(""),
-        "timestamp": timestamp,
-        "date": chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
-    });
-
-    // Adicionar no início (mais recente primeiro)
-    history.insert(0, activity);
-
-    // Manter apenas últimos 1000 registros
-    if history.len() > 1000 {
-        history.truncate(1000);
-    }
-
-    // Salvar histórico
-    let json_str = serde_json::to_string_pretty(&history)
-        .map_err(|e| format!("Erro ao serializar histórico: {}", e))?;
-
-    fs::write(&history_path, json_str).map_err(|e| format!("Erro ao salvar histórico: {}", e))?;
-
-    Ok(())
-}
 
 // Organização automática por data/tipo
 // Função preparada para uso futuro quando a organização automática for ativada
@@ -1466,17 +1451,7 @@ fn get_activity_history(
     limit: Option<usize>,
     activity_type: Option<String>,
 ) -> Result<String, String> {
-    let history_path = get_history_file_path();
-
-    if !history_path.exists() {
-        return Ok(json!([]).to_string());
-    }
-
-    let content =
-        fs::read_to_string(&history_path).map_err(|e| format!("Erro ao ler histórico: {}", e))?;
-
-    let mut history: Vec<Value> =
-        serde_json::from_str(&content).map_err(|e| format!("Erro ao parsear histórico: {}", e))?;
+    let mut history = read_history()?;
 
     // Filtrar por tipo se especificado
     if let Some(filter_type) = activity_type {
@@ -1498,57 +1473,32 @@ fn get_activity_history(
 // Obter estatísticas
 #[tauri::command]
 fn get_statistics() -> Result<String, String> {
-    let history_path = get_history_file_path();
+    let history = read_history()?;
+    let mut by_type: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+    let mut by_date: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+    let mut total_size: u64 = 0;
 
-    let mut stats = json!({
-        "total_activities": 0,
-        "total_size": 0,
-        "by_type": {},
-        "by_date": {},
-        "recent_activities": []
-    });
-
-    if history_path.exists() {
-        if let Ok(content) = fs::read_to_string(&history_path) {
-            if let Ok(history) = serde_json::from_str::<Vec<Value>>(&content) {
-                let mut by_type: std::collections::HashMap<String, i64> =
-                    std::collections::HashMap::new();
-                let mut by_date: std::collections::HashMap<String, i64> =
-                    std::collections::HashMap::new();
-                let mut total_size: u64 = 0;
-
-                for activity in &history {
-                    // Contar por tipo
-                    if let Some(type_str) = activity.get("type").and_then(|v| v.as_str()) {
-                        *by_type.entry(type_str.to_string()).or_insert(0) += 1;
-                    }
-
-                    // Contar por data
-                    if let Some(date_str) = activity.get("date").and_then(|v| v.as_str()) {
-                        let date_only = date_str.split(' ').next().unwrap_or(date_str);
-                        *by_date.entry(date_only.to_string()).or_insert(0) += 1;
-                    }
-
-                    // Somar tamanhos
-                    if let Some(size) = activity.get("file_size").and_then(|v| v.as_u64()) {
-                        total_size += size;
-                    }
-                }
-
-                // Pegar últimas 10 atividades
-                let recent: Vec<&Value> = history.iter().take(10).collect();
-
-                stats = json!({
-                    "total_activities": history.len(),
-                    "total_size": total_size,
-                    "by_type": by_type,
-                    "by_date": by_date,
-                    "recent_activities": recent
-                });
-            }
+    for activity in &history {
+        if let Some(type_str) = activity.get("type").and_then(|v| v.as_str()) {
+            *by_type.entry(type_str.to_string()).or_insert(0) += 1;
+        }
+        if let Some(date_str) = activity.get("date").and_then(|v| v.as_str()) {
+            let date_only = date_str.split(' ').next().unwrap_or(date_str);
+            *by_date.entry(date_only.to_string()).or_insert(0) += 1;
+        }
+        if let Some(size) = activity.get("file_size").and_then(|v| v.as_u64()) {
+            total_size += size;
         }
     }
 
+    let recent: Vec<&Value> = history.iter().take(10).collect();
+    let stats = json!({
+        "total_activities": history.len(),
+        "total_size": total_size,
+        "by_type": by_type,
+        "by_date": by_date,
+        "recent_activities": recent
+    });
     Ok(stats.to_string())
 }
 
@@ -1576,6 +1526,11 @@ fn get_system_logs(limit: Option<usize>) -> Result<String, String> {
     let recent_lines: Vec<&str> = lines.iter().rev().take(limit_value).copied().collect();
 
     Ok(json!(recent_lines).to_string())
+}
+
+#[tauri::command]
+fn clear_system_logs() -> Result<(), String> {
+    clear_logs()
 }
 
 #[tauri::command]
@@ -1667,13 +1622,31 @@ fn check_for_updates(current_version: String) -> Result<String, String> {
 
         let release_body = json.get("body").and_then(|v| v.as_str()).unwrap_or("");
 
+        let expected_extension = if cfg!(windows) {
+            ".msi"
+        } else if cfg!(target_os = "macos") {
+            ".dmg"
+        } else {
+            ".appimage"
+        };
+        let release_page = json
+            .get("html_url")
+            .and_then(|value| value.as_str())
+            .unwrap_or("https://github.com/gabrielkramermota/UPLOAD-IASD/releases/latest");
         let download_url = json
             .get("assets")
             .and_then(|assets| assets.as_array())
-            .and_then(|assets| assets.first())
+            .and_then(|assets| {
+                assets.iter().find(|asset| {
+                    asset
+                        .get("name")
+                        .and_then(|value| value.as_str())
+                        .is_some_and(|name| name.to_ascii_lowercase().ends_with(expected_extension))
+                })
+            })
             .and_then(|asset| asset.get("browser_download_url"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+            .and_then(|value| value.as_str())
+            .unwrap_or(release_page);
 
         // Retornar JSON com informações da atualização
         Ok(json!({
@@ -1707,12 +1680,17 @@ static UPLOAD_SERVER_HANDLE: Mutex<Option<tokio::task::JoinHandle<Result<(), Str
 
 #[tauri::command]
 async fn start_upload_server() -> Result<String, String> {
-    let mut handle = UPLOAD_SERVER_HANDLE
-        .lock()
-        .map_err(|e| format!("Erro: {}", e))?;
-
-    if handle.is_some() {
-        return Err("Servidor já está em execução".to_string());
+    {
+        let mut handle = UPLOAD_SERVER_HANDLE
+            .lock()
+            .map_err(|e| format!("Erro: {}", e))?;
+        if let Some(existing) = handle.as_ref() {
+            if existing.is_finished() {
+                handle.take();
+            } else {
+                return Err("Servidor já está em execução".to_string());
+            }
+        }
     }
 
     // Obter diretório de uploads (configurável)
@@ -1730,19 +1708,22 @@ async fn start_upload_server() -> Result<String, String> {
 
     // Porta padrão
     let port = 8080;
+    let local_ip =
+        local_ip_address::local_ip().map_err(|_| "Não foi possível obter IP local".to_string())?;
+    let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
+        .await
+        .map_err(|e| format!("Não foi possível abrir a porta {}: {}", port, e))?;
 
     // Iniciar servidor em background
     let upload_dir_clone = upload_dir.clone();
-    let server_handle =
-        tokio::spawn(
-            async move { upload_server::start_upload_server(port, upload_dir_clone).await },
-        );
+    let server_handle = tokio::spawn(async move {
+        upload_server::start_upload_server(listener, upload_dir_clone).await
+    });
 
+    let mut handle = UPLOAD_SERVER_HANDLE
+        .lock()
+        .map_err(|e| format!("Erro: {}", e))?;
     *handle = Some(server_handle);
-
-    // Obter IP local
-    let local_ip =
-        local_ip_address::local_ip().map_err(|_| "Não foi possível obter IP local".to_string())?;
 
     let url = format!("http://{}:{}", local_ip, port);
 
@@ -1765,9 +1746,13 @@ fn stop_upload_server() -> Result<String, String> {
 
 #[tauri::command]
 fn get_upload_server_url() -> Result<String, String> {
-    let handle = UPLOAD_SERVER_HANDLE
+    let mut handle = UPLOAD_SERVER_HANDLE
         .lock()
         .map_err(|e| format!("Erro: {}", e))?;
+
+    if handle.as_ref().is_some_and(|server| server.is_finished()) {
+        handle.take();
+    }
 
     if handle.is_some() {
         let local_ip = local_ip_address::local_ip()
@@ -1781,7 +1766,9 @@ fn get_upload_server_url() -> Result<String, String> {
 // Comando para abrir URL no navegador padrão
 #[tauri::command]
 fn open_link(url: String, app: tauri::AppHandle) -> Result<(), String> {
-    app.opener().open_url(&url, None::<&str>).map_err(|e| format!("Erro ao abrir URL: {}", e))
+    app.opener()
+        .open_url(&url, None::<&str>)
+        .map_err(|e| format!("Erro ao abrir URL: {}", e))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1790,9 +1777,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .setup(|_app| {
-            Ok(())
-        })
+        .setup(|_app| Ok(()))
         .invoke_handler(tauri::generate_handler![
             greet,
             get_video_info,
@@ -1812,6 +1797,7 @@ pub fn run() {
             get_activity_history,
             get_statistics,
             get_system_logs,
+            clear_system_logs,
             log_event,
             open_link
         ])

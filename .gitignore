@@ -29,6 +29,8 @@ dist-ssr
 # Rust/Cargo build artifacts
 src-tauri/target/
 src-tauri/Cargo.lock
+src-tauri/whatsapp-runtime/*
+!src-tauri/whatsapp-runtime/.gitkeep
 
 # WhatsApp Bot cache
 .wwebjs_cache/

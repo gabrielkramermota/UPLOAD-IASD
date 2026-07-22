@@ -1,7 +1,13 @@
 const { Client, NoAuth } = require("whatsapp-web.js");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const { v4: uuidv4 } = require("uuid");
+const {
+  emitActivity,
+  sanitizeExtension,
+  sanitizeFileStem,
+  uniqueFilePath,
+} = require("./whatsapp-utils.cjs");
 
 const args = process.argv.slice(2);
 const uploadsPath = args[0] || path.join(__dirname, "..", "uploads");
@@ -9,6 +15,7 @@ const qrCodePath = args[1] || path.join(__dirname, "..", "qr-code.txt");
 const statusPath = args[2] || path.join(__dirname, "..", "bot-status.json");
 const sessionPath = args[3] || path.join(__dirname, "..", ".wwebjs_auth");
 const cachePath = args[4] || path.join(__dirname, "..", ".wwebjs_cache");
+const browserPath = args[5] || process.env.PUPPETEER_EXECUTABLE_PATH || "";
 
 function nowIso() {
   return new Date().toISOString();
@@ -113,6 +120,7 @@ const client = new Client({
   authStrategy: new NoAuth(),
   puppeteer: {
     headless: true,
+    ...(browserPath ? { executablePath: browserPath } : {}),
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -210,13 +218,17 @@ client.on("message_create", async (msg) => {
       }
 
       const rawExtension = (media.mimetype || "application/octet-stream").split("/")[1] || "bin";
-      const extension = rawExtension.split(";")[0].trim() || "bin";
+      const extension = sanitizeExtension(rawExtension);
       const commandParts = msg.body.split(" ");
-      const customFileName = commandParts[1] || uuidv4().split("-")[0];
-      const fileName = `${customFileName}.${extension}`;
-      const filePath = path.join(uploadsPath, fileName);
+      const customFileName = sanitizeFileStem(
+        commandParts[1],
+        crypto.randomUUID().split("-")[0]
+      );
+      const filePath = uniqueFilePath(uploadsPath, customFileName, extension);
+      const fileName = path.basename(filePath);
 
       fs.writeFileSync(filePath, media.data, "base64");
+      emitActivity(filePath, customFileName);
       await msg.reply(`Midia salva como ${fileName} com sucesso.`);
       console.log(`Media saved from message_create: ${fileName}`);
     } catch (error) {
@@ -243,7 +255,16 @@ client.on("message_create", async (msg) => {
 
   if (msg.body.startsWith("!links")) {
     const commandParts = msg.body.split(" ");
-    const customFileName = commandParts[1] || `${uuidv4().split("-")[0]}.txt`;
+    let customFileName;
+    try {
+      customFileName = sanitizeFileStem(
+        commandParts[1],
+        crypto.randomUUID().split("-")[0]
+      ).replace(/\.txt$/i, "");
+    } catch (error) {
+      await msg.reply("Nome de arquivo inválido.");
+      return;
+    }
     const links = commandParts.slice(2);
 
     if (links.length === 0) {
@@ -251,12 +272,13 @@ client.on("message_create", async (msg) => {
       return;
     }
 
-    const fileName = customFileName.endsWith(".txt") ? customFileName : `${customFileName}.txt`;
-    const filePath = path.join(uploadsPath, fileName);
+    const filePath = uniqueFilePath(uploadsPath, customFileName, "txt");
+    const fileName = path.basename(filePath);
     const fileContent = links.join("\n");
 
     try {
       fs.writeFileSync(filePath, fileContent, "utf8");
+      emitActivity(filePath, customFileName);
       await msg.reply(`Links salvos no arquivo ${fileName} com sucesso.`);
       console.log(`Links saved from message_create: ${fileName}`);
     } catch (error) {
